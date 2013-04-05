@@ -1,0 +1,109 @@
+<%
+   f = taglib("/lib/form")
+   f.block do
+%>
+    <table style="margin-left: 30px;">
+      <%
+         f.entry :title => 'VM Name',
+                 :field => 'vm_name',
+                 :description => 'Name that will appear in nova for VM you are creating.' do
+           f.textbox :clazz => 'required', :default => 'my-test-vm'
+         end
+         f.entry :title => 'Delete VM at Beginning',
+                 :field => 'checkbox_delete_vm_at_start',
+                 :description => 'With great power comes great responsibility. This deletes any VM using the VM Name entered, in the account you configure here. Please take caution to not delete your coworkers infrastructure!' do
+           f.checkbox :clazz => 'required', :default => 'false'
+         end
+         f.entry :title => 'Delete VM at End',
+                 :field => 'checkbox_delete_vm_at_end',
+                 :description => 'Delete the VM after the job has completed.' do
+           f.checkbox :clazz => 'required', :default => 'false'
+         end
+         f.entry :title => 'Cloud Account Username',
+                 :field => 'os_username',
+                 :description => 'HP Cloud account username.' do
+           f.textbox :clazz => 'required', :default => 'yourhpuser'
+         end
+         f.entry :title => 'Password',
+                 :field => 'os_password',
+                 :description => 'HP Cloud account password. TIP - Use Jenkins EnvInject plugin to encrypt your password. Put the $PASSWORDVAR in this input.' do
+           f.password :clazz => 'required', :default => ''
+         end
+         f.entry :title => 'Tenant Name',
+                 :field => 'os_tenant_name',
+                 :description => 'HP Cloud tenant name' do
+           f.textbox :clazz => 'required', :default => 'myusername@hp.com-tenant1'
+         end
+         f.entry :title => 'Auth URL',
+                 :field => 'os_auth_url',
+                 :description => 'HP Cloud auth url' do
+           f.textbox :clazz => 'required', :default => 'https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/'
+         end
+         f.entry :title => 'Region Name',
+                 :field => 'os_region_name',
+                 :description => 'Zone where vm will be created (az-1.region-a.geo-1,az-2.region-a.geo-1, etc)' do
+           f.textbox :clazz => 'required', :default => 'az-1.region-a.geo-1'
+         end
+
+         f.entry :title => 'Image Name',
+                 :field => 'vm_image_name',
+                 :description => 'Operating system image that will be deployed. Partial strings allowed. First image matched is used.' do
+           f.textbox :clazz => 'required', :default => 'Ubuntu Precise 12.04 LTS Server 64-bit'
+         end
+         f.entry :title => 'Flavor Name',
+                 :field => 'vm_flavor_name',
+                 :description => 'Flavor or size of vm (standard.xsmall, standard.medium, etc)' do
+           f.textbox :clazz => 'required', :default => 'standard.xsmall'
+         end
+         f.entry :title => 'Security Group',
+                 :field => 'vm_security_groups',
+                 :description => 'Openstack security group (my custom group)' do
+           f.textbox :clazz => 'required', :default => 'default'
+         end
+
+         f.optionalBlock :title => 'Upload custom-script to VM',
+                         :field => 'checkbox_user_data',
+                         :inline => true do
+           f.entry :title => 'Script',
+                   :field => 'vm_user_data_script',
+                   :description => "Script is uploaded to the VM and will appear at '/custom-script'. chmod +x and run it in the next input." do
+             f.textarea :clazz => '', :default => "echo 'Hello on VM!'"
+           end
+         end
+
+         f.optionalBlock :title => 'Run commands on VM over SSH',
+                         :field => 'checkbox_ssh_shell_script',
+                         :inline => true do
+
+           f.entry :title => 'Commands',
+                   :field => 'ssh_shell_commands',
+                   :description => '' do
+             f.textarea :clazz => 'required', :default => 'hostname'
+           end
+
+           f.entry :title => 'Run commands line by line',
+                   :field => 'checkbox_commands_linebyline',
+                   :description => '' do
+             f.checkbox :clazz => '', :default => 'true'
+           end
+
+         end
+
+         f.optionalBlock :title => 'Validate job result by parsing console log for errors with a regex',
+                         :field => 'checkbox_validation_regex',
+                         :inline => true do
+
+           f.entry :title => 'Regex',
+                   :field => 'result_validation_regex',
+                   :description => '' do
+             f.textbox :clazz => ''
+           end
+         end
+
+    %>
+
+    </table>
+<%
+   end
+
+%>
