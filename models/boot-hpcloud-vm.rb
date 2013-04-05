@@ -108,9 +108,9 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
     else
 
-      if @novafizz.server_exists(vm_name)
+      if @novafizz.server_exists(vm_name2)
         write_log "Delete cloud VM and key with name '#{vm_name2}'..."
-        @novafizz.cleanup(vm_name)
+        @novafizz.cleanup(vm_name2)
       end
 
       write_log "Booting a new cloud VM with name '#{vm_name2}'..."
@@ -151,7 +151,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
         command_array = ssh_shell_commands2.split(/[\n]/)
 
-        run_commands(@creds, command_array) do |output|
+        @novafizz.run_commands(@creds, command_array) do |output|
           @console.info output
           full_output += ' ' + output
         end
@@ -165,7 +165,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
         command_array.push(clean_cmd)
 
-        run_commands(@creds, command_array) do |output|
+        @novafizz.run_commands(@creds, command_array) do |output|
           @console.info output
           full_output += ' ' + output
         end
@@ -222,24 +222,29 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
     write_log "Make sure SSH to #{creds[:ip]} is working. SSH into the VM and echo the hostname."
 
-    full_output = ''
+    sleep(20) # because nova boot really should be this fast
 
-    for i in 1..30
+    full_output = ''
+    result=0
+
+    for i in 1..5
       begin
-        @novafizz.run_command(creds, 'hostname') do |output|
+        result= @novafizz.run_commands(creds, 'hostname') do |output|
           @console.info output
           full_output+=output
         end
-        @console.info "What what... what is my name, huh, owww, too hot."
+        @console.info "What what... what is my name, huh, owww, too hot!"
         break
       rescue
-        @console.info "Tried ssh connect #{i} of 20... not alive... wait 10 seconds and retry..."
+        @console.info "Tried ssh connect #{i} of 30... not alive... wait 10 seconds and retry..."
         sleep(10)
         next
       end
     end
-
-    #raise "Something is wonky with SSH to '#{creds[:ip]}'. Expected output from running command 'hostname' /
+    if result != 0
+      raise "SSH ubuntu@'#{creds[:ip]}' timed out after 300 seconds. Check defined security groups and make sure 22 is open."
+    end
+        # raise "Something is wonky with SSH to '#{creds[:ip]}'. Expected output from running command 'hostname' /
     #              should have been '#{vm_name}' yet '#{full_output}' was found." unless full_output == vm_name
     # bugbug - if i nova boot a vm with name matty.server.hp.com, sometimes it appears that only "matty" will show as hostname
 
