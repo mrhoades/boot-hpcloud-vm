@@ -227,7 +227,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     full_output = ''
     result=0
 
-    for i in 1..5
+    for i in 1..30
       begin
         result= @novafizz.run_commands(creds, 'hostname') do |output|
           @console.info output

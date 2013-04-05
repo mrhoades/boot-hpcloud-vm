@@ -29,6 +29,6 @@ PLATFORMS
 
 DEPENDENCIES
   jenkins-plugin-runtime (~> 0.2.3)
-  jruby-openssl (>= 0.8.6)
+  jruby-openssl (>= 0.8.7)
   net-ssh-simple (~> 1.6.2)
   openstack (~> 1.0.9)
