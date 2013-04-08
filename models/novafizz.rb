@@ -240,6 +240,7 @@ class NovaFizz
 
 
   def run_commands(creds, command_array)
+    failed_cmd = nil
     res = Net::SSH::Simple.sync do
       ssh(creds[:ip], '/bin/bash',
           :user => creds[:user],
@@ -250,6 +251,7 @@ class NovaFizz
         case e
           when :start
             command_array.each do |cmd|
+              failed_cmd = cmd
               c.send_data "#{cmd}\n"
             end
             c.eof!
@@ -268,7 +270,7 @@ class NovaFizz
       end
     end
     if res.exit_code != 0
-      raise "command #{commands} failed on #{creds[:ip]}:\n#{res.stdout}\n#{res.stderr}"
+      raise "command #{failed_cmd} failed on #{creds[:ip]}:\n#{res.stderr}"
     end
     res
   end

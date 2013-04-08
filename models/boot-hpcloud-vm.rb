@@ -56,17 +56,17 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     @build = build
     @env = build.native.getEnvironment()
 
-
     inject_env_vars()
 
     connect_to_hpcloud()
 
     boot_vm()
 
+    scp_custom_script_to_vm() unless !checkbox_user_data
+
     execute_ssh_commands_on_vm() unless !checkbox_ssh_shell_script
 
     cleanup_vm() unless !checkbox_delete_vm_at_end
-
   end
 
 
@@ -89,13 +89,6 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
       @creds = {:ip => @novafizz.server_by_name(vm_name2).accessipv4,
                :user => 'ubuntu', #bugbugbug - user should not be hardcoded
                :key => @novafizz.get_key(vm_name2, File.expand_path("~/.ssh/hpcloud-keys/" + os_region_name))}
-
-      wait_for_ssh(@creds)
-
-      local_file = @env['WORKSPACE'] + '/' + 'custom-script'
-      remote_file = 'custom-script'
-      @novafizz.scp_file(@creds, local_file, remote_file)
-
     else
 
       if @novafizz.server_exists(vm_name2)
@@ -115,24 +108,29 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
                              :image => /#{vm_image_name2}/,
                              :key_name => vm_name2,
                              :region => os_region_name2,
-                             :sec_groups => [vm_security_groups2],
-                             :personality => {create_user_script_file() => '/home/ubuntu/custom-script'}
+                             :sec_groups => [vm_security_groups2]
 
       write_log 'VM booted at IP Address: ' + @creds[:ip]
       write_log @creds[:key]
-
-      #bugbugbug - user is hardcoded everywhere. this should be configurable
-      @creds[:user] = 'ubuntu'
-
-      wait_for_ssh(@creds)
 
       #if vm_floating_ip != ''
       #  @novafizz.assign_floating_ip(vm_name,vm_floating_ip)
       #end
 
     end
+
+    wait_for_ssh(@creds)
+
   end
 
+  def scp_custom_script_to_vm
+    local_file = create_custom_script_file()
+    remote_file = 'custom-script'
+    @novafizz.scp_file(@creds, local_file, remote_file)
+
+    #chmod that badboy
+    @novafizz.run_commands(@creds,"sudo chmod +x #{remote_file}".split(','))
+  end
 
   def execute_ssh_commands_on_vm()
 
@@ -246,7 +244,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
   end
 
 
-  def create_user_script_file
+  def create_custom_script_file
 
     # creates a script file from the user data provided in jenkins vm_user_data_script2
 
