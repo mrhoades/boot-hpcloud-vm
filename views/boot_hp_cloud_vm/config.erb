@@ -66,7 +66,7 @@
                          :inline => true do
            f.entry :title => 'Script',
                    :field => 'vm_user_data_script',
-                   :description => "Script is uploaded to the VM and will appear at '/custom-script'. chmod +x and run it in the next input." do
+                   :description => "Script is uploaded to users home dir with file name 'custom-script'" do
              f.textarea :clazz => '', :default => "echo 'Hello on VM!'"
            end
          end
@@ -79,24 +79,6 @@
                    :field => 'ssh_shell_commands',
                    :description => '' do
              f.textarea :clazz => 'required', :default => 'hostname'
-           end
-
-           f.entry :title => 'Run commands line by line',
-                   :field => 'checkbox_commands_linebyline',
-                   :description => '' do
-             f.checkbox :clazz => '', :default => 'true'
-           end
-
-         end
-
-         f.optionalBlock :title => 'Validate job result by parsing console log for errors with a regex',
-                         :field => 'checkbox_validation_regex',
-                         :inline => true do
-
-           f.entry :title => 'Regex',
-                   :field => 'result_validation_regex',
-                   :description => '' do
-             f.textbox :clazz => ''
            end
          end
 

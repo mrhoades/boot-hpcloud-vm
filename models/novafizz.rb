@@ -4,17 +4,31 @@ require 'fileutils'
 
 class NovaFizz
 
-  attr_accessor :os, :fog
+  attr_accessor :os,
+                :fog,
+                :logger
 
   def initialize(opts)
+
+    @logger = opts[:logger]
+
+    @logger.info "CREATE CONNECTION:"
+    @logger.info "USER: #{opts[:username]}"
+    @logger.info "PASS: *******"
+    @logger.info "TENANT_NAME: #{opts[:authtenant]}"
+    @logger.info "AUTH_URL: #{opts[:auth_url]}"
+    @logger.info "REGION: #{opts[:region]}"
+    @logger.info "SERVICE_TYPE:#{opts[:service_type]}"
 
     @os = OpenStack::Connection.create(:username => opts[:username],
                                         :api_key => opts[:password],
                                         :authtenant => opts[:authtenant],
                                         :auth_url => opts[:auth_url],
                                         :region => opts[:region],
-                                        :service_type => "compute")
+                                        :service_type => opts[:service_type])
+
   end
+
 
 
   ## fog methods
@@ -169,14 +183,9 @@ class NovaFizz
     'ubuntu'
   end
 
-  def cleanup(name)
-    if server_exists name
-      delete_if_exists(name)
-    end
-
-    if keypair_exists name
-      delete_keypair_if_exists(name)
-    end
+  def delete_vm_and_key(name)
+    delete_vm_if_exists(name)
+    delete_keypair_if_exists(replace_period_with_dash(name))
   end
 
   def keypair_exists(name)
@@ -189,7 +198,7 @@ class NovaFizz
       s = server_by_name name
       return true if s
     rescue OpenStack::Exception::ItemNotFound
-       print "VM with #{name} doesn't exist."
+       @logger.info "VM with #{name} doesn't exist."
       return false
     else
       return false
@@ -200,22 +209,37 @@ class NovaFizz
     @os.delete_keypair name if keypair_exists name
   end
 
-  def delete_if_exists(name)
+  def delete_vm_if_exists(name)
     s = server_by_name name
     s.delete! if s
+    wait_for_vm_delete(name)
+  end
 
-    # wait for the delete
-    counter = 1
-    while server_exists(name) and counter < 20
-      #listener.info "attempt #{counter} of 20 - wait 5 seconds for server delete..."
-      print "attempt #{counter} of 20 - wait 5 seconds for server delete..."
-      sleep(5)
-      counter+=1
+  def wait_for_vm_delete(name)
+
+    ssh_retry_interval_seconds = 10 # it really shouldn't take much longer than this to delete a node
+    ssh_retry_count = 10
+    sleep(ssh_retry_interval_seconds)
+
+    for i in 1..ssh_retry_count
+      begin
+        break unless server_exists(name)
+        @logger.info "Wait attempt #{i} of #{ssh_retry_count} for deletion of vm '#{name}'... wait #{ssh_retry_interval_seconds} seconds."
+        sleep(ssh_retry_interval_seconds)
+      rescue Exception => e
+        @logger.info e.message
+        next
+      end
+    end
+
+    if(server_exists(name))
+      raise "There is an issue with deleting the vm #{name} in a timely fashion."
     end
 
   end
 
-  def run_commands(creds, commands)
+
+  def run_commands(creds, command_array)
     res = Net::SSH::Simple.sync do
       ssh(creds[:ip], '/bin/bash',
           :user => creds[:user],
@@ -225,8 +249,8 @@ class NovaFizz
           :user_known_hosts_file => ['/dev/null']) do |e,c,d|
         case e
           when :start
-            commands.each do |cmd|
-              c.send_data "echo ' ' && echo ' ' && echo 'RUN COMMAND: #{cmd}' && #{cmd}\n"
+            command_array.each do |cmd|
+              c.send_data "#{cmd}\n"
             end
             c.eof!
           when :stdout
@@ -249,9 +273,47 @@ class NovaFizz
     res
   end
 
+  def scp_file(creds, local_file_path, remote_file_path)
+
+    @logger.info "SCP file #{local_file_path} to server and put at #{remote_file_path}"
+
+    begin
+      Net::SSH::Simple.sync do
+        r = ssh(creds[:ip], 'echo "Hello World"',
+                :user => creds[:user],
+                :key_data => [creds[:key]],
+                :timeout => 30,
+                :global_known_hosts_file => ['/dev/null'],
+                :user_known_hosts_file => ['/dev/null'])
+        if r.success and r.stdout == 'Hello World'
+          @logger.info "Success! I Hello World."
+        end
+
+        r = scp_put(creds[:ip], local_file_path, remote_file_path) do |sent, total|
+          @logger.info "Bytes uploaded: #{sent} of #{total}"
+        end
+        if r.success and r.sent == r.total
+          @logger.info "Success! Uploaded #{r.sent} of #{r.total} bytes."
+        end
+
+      end
+    rescue Net::SSH::Simple::Error => e
+      @logger.info "Error with scp file to server"
+      @logger.info e          # Human readable error
+      @logger.info e.wrapped  # Original Exception
+      @logger.info e.result   # Net::SSH::Simple::Result
+      raise e
+    end
+  end
+
 
   # boot an instance and return creds
   def boot(opts)
+
+    opts.each do |key,value|
+      @logger.info "#{key} : #{value}"
+    end
+
     opts[:flavor] ||= 'standard.xsmall'
     opts[:image]  ||= /Ubuntu Precise/
     opts[:sec_groups] ||= ['default']
@@ -260,7 +322,7 @@ class NovaFizz
     opts[:personality] ||= {}
     raise 'no name provided' if !opts[:name] or opts[:name].empty?
 
-    cleanup opts[:name]
+    delete_vm_and_key opts[:name]
     private_key = new_key opts[:name]
     write_key(private_key, File.expand_path('~/.ssh/hpcloud-keys/' + opts[:region] + '/'))
 
