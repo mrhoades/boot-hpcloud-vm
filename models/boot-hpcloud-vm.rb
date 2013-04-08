@@ -22,12 +22,12 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :vm_security_groups,
               :vm_user_data_script,
               :ssh_shell_commands,
-              :result_validation_regex,
+              :ssh_shell_timeout,
+              :ssh_shell_user,
               :checkbox_delete_vm_at_start,
               :checkbox_delete_vm_at_end,
               :checkbox_user_data,
               :checkbox_ssh_shell_script,
-              :checkbox_validation_regex,
               :os_username2,
               :os_password2,
               :os_tenant_name2,
@@ -39,7 +39,8 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :vm_security_groups2,
               :vm_user_data_script2,
               :ssh_shell_commands2,
-              :result_validation_regex2
+              :ssh_shell_timeout2,
+              :ssh_shell_user2
 
 
   def initialize(attrs)
@@ -57,8 +58,6 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     @env = build.native.getEnvironment()
 
     inject_env_vars()
-
-    connect_to_hpcloud()
 
     boot_vm()
 
@@ -83,12 +82,16 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
   def boot_vm
 
+    connect_to_hpcloud()
+
     if @novafizz.server_exists(vm_name2) == true and checkbox_delete_vm_at_start == false
 
       write_log "Re-Using existing VM with name '#{vm_name2}' ..."
+
       @creds = {:ip => @novafizz.server_by_name(vm_name2).accessipv4,
-               :user => 'ubuntu', #bugbugbug - user should not be hardcoded
-               :key => @novafizz.get_key(vm_name2, File.expand_path("~/.ssh/hpcloud-keys/" + os_region_name))}
+               :user => ssh_shell_user2,
+               :key => @novafizz.get_key(vm_name2, File.expand_path("~/.ssh/hpcloud-keys/" + os_region_name)),
+               :ssh_shell_timeout => Integer(ssh_shell_timeout2)}
     else
 
       if @novafizz.server_exists(vm_name2)
@@ -108,10 +111,13 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
                              :image => /#{vm_image_name2}/,
                              :key_name => vm_name2,
                              :region => os_region_name2,
-                             :sec_groups => [vm_security_groups2]
+                             :sec_groups => [vm_security_groups2],
+                             :ssh_shell_user => [ssh_shell_user2]
 
       write_log 'VM booted at IP Address: ' + @creds[:ip]
       write_log @creds[:key]
+
+      @creds[:ssh_shell_timeout] = Integer(ssh_shell_timeout2)
 
       #if vm_floating_ip != ''
       #  @novafizz.assign_floating_ip(vm_name,vm_floating_ip)
@@ -134,8 +140,8 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
   def execute_ssh_commands_on_vm()
 
-      write_log "ssh ubuntu@#{@creds[:ip]} and run commands:"
-      write_log ssh_shell_commands2
+      write_log "ssh #{@creds[:ssh_shell_user2]}@#{@creds[:ip]} and run commands line-by-line:"
+      print_with_command_numbers(ssh_shell_commands2)
 
       full_output = ''
 
@@ -148,6 +154,16 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
       end
   end
 
+  def print_with_command_numbers(commands_string)
+    # takes a string pulled from a textarea
+    # creates an array of items as numbered steps
+    commands = commands_string.split(/[\n]/)
+
+    commands.each_with_index do |cmd,index|
+      @logger.info "COMMAND_#{index}: #{cmd}"
+    end
+
+  end
 
   def build_commmands_array(commands_string)
 
@@ -173,6 +189,9 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
 
   def cleanup_vm
+
+      connect_to_hpcloud()
+
       write_log "Delete cloud vm and key with name '#{vm_name}'..."
       @novafizz.delete_vm_and_key(vm_name)
   end
@@ -233,7 +252,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
     if result != 0
 
-      @logger.info "SSH ubuntu@'#{creds[:ip]}' timed out after #{(ssh_poll_interval_seconds*ssh_retry_count).to_s} seconds."
+      @logger.info "SSH #{creds[:ssh_shell_user]}@#{creds[:ip]} timed out after #{(ssh_poll_interval_seconds*ssh_retry_count).to_s} seconds."
       @logger.info "Check defined security groups and make sure 22 is open for jenkins master or slave node."
 
       @build.native.setResult(Java.hudson.model.Result::FAILURE)

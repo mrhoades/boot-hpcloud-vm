@@ -245,7 +245,7 @@ class NovaFizz
       ssh(creds[:ip], '/bin/bash',
           :user => creds[:user],
           :key_data => [creds[:key]],
-          :timeout => 3600,
+          :timeout => creds[:ssh_shell_timeout],
           :global_known_hosts_file => ['/dev/null'],
           :user_known_hosts_file => ['/dev/null']) do |e,c,d|
         case e
@@ -284,7 +284,7 @@ class NovaFizz
         r = ssh(creds[:ip], 'echo "Hello World"',
                 :user => creds[:user],
                 :key_data => [creds[:key]],
-                :timeout => 30,
+                :timeout => creds[:ssh_shell_timeout],
                 :global_known_hosts_file => ['/dev/null'],
                 :user_known_hosts_file => ['/dev/null'])
         if r.success and r.stdout == 'Hello World'
@@ -322,6 +322,8 @@ class NovaFizz
     opts[:key_name] ||= 'default'
     opts[:region] ||= 'az-2.region-a.geo-1'
     opts[:personality] ||= {}
+    opts[:ssh_shell_user] ||= 'ubuntu'
+
     raise 'no name provided' if !opts[:name] or opts[:name].empty?
 
     delete_vm_and_key opts[:name]
@@ -344,7 +346,7 @@ class NovaFizz
 
     {
         :ip => public_ip(server),
-        :user => 'ubuntu',
+        :user => opts[:ssh_shell_user],
         :key => private_key[:private_key]
     }
   end

@@ -80,6 +80,18 @@
                    :description => '' do
              f.textarea :clazz => 'required', :default => 'hostname'
            end
+           f.entry :title => 'SSH User',
+                   :field => 'ssh_shell_user',
+                   :description => 'Provide the username that will ssh to VM' do
+             f.textbox :clazz => 'required', :default => 'ubuntu'
+           end
+
+           f.entry :title => 'SSH Timeout Seconds',
+                   :field => 'ssh_shell_timeout',
+                   :description => 'Try a timeout that is 20% above expected job length' do
+             f.textbox :clazz => 'required', :default => '3600'
+           end
+
          end
 
     %>
