@@ -64,7 +64,12 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     scp_custom_script_to_vm() unless !checkbox_user_data
 
     execute_ssh_commands_on_vm() unless !checkbox_ssh_shell_script
-
+  rescue Exception => e
+    @logger.info "ERROR: with boot VM, scp script, or ssh script"
+    @logger.info e          # Human readable error
+    @logger.info e.wrapped  # Original Exception
+    @build.native.setResult(Java.hudson.model.Result::FAILURE)
+  ensure
     cleanup_vm() unless !checkbox_delete_vm_at_end
   end
 
@@ -192,8 +197,8 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
       connect_to_hpcloud()
 
-      write_log "Delete cloud vm and key with name '#{vm_name}'..."
-      @novafizz.delete_vm_and_key(vm_name)
+      write_log "Delete cloud vm and key with name '#{vm_name2}'..."
+      @novafizz.delete_vm_and_key(vm_name2)
   end
 
   def check_console_log_for_errors(output)
@@ -252,16 +257,12 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
     if result != 0
 
-      @logger.info "SSH #{creds[:ssh_shell_user]}@#{creds[:ip]} timed out after #{(ssh_poll_interval_seconds*ssh_retry_count).to_s} seconds."
-      @logger.info "Check defined security groups and make sure 22 is open for jenkins master or slave node."
-
-      @build.native.setResult(Java.hudson.model.Result::FAILURE)
-      @build.halt
+      error_message = "SSH #{creds[:ssh_shell_user]}@#{creds[:ip]} timed out after #{(ssh_poll_interval_seconds*ssh_retry_count).to_s} seconds.\n"
+      error_message << "Check defined security groups and make sure 22 is open for jenkins master or slave node."
+      @logger.info error_message
+      raise error_message
     end
-
-    return true
   end
-
 
   def create_custom_script_file
 
@@ -369,7 +370,10 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     end
   end
 
-
+  def fail_and_halt_build
+    @build.native.setResult(Java.hudson.model.Result::FAILURE)
+    @build.halt
+  end
 
   def print_debug_info
 
