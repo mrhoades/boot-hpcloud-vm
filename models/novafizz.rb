@@ -29,6 +29,13 @@ class NovaFizz
 
   end
 
+  def is_openstack_auth_ok
+    if @os.authok?
+      return true
+    end
+  rescue
+    false
+  end
 
 
   ## fog methods

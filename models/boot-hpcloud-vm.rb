@@ -48,8 +48,6 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     attrs.each {|k, v| instance_variable_set "@#{k}2", v}
   end
 
-  def prebuild(build, listener)
-  end
 
   def perform(build, launcher, listener)
 
@@ -58,11 +56,8 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     @env = build.native.getEnvironment()
 
     inject_env_vars()
-
     boot_vm()
-
     scp_custom_script_to_vm() unless !checkbox_user_data
-
     execute_ssh_commands_on_vm() unless !checkbox_ssh_shell_script
   rescue Exception => e
     @logger.info "ERROR: with boot HPCloud VM"
@@ -75,13 +70,13 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
 
   def connect_to_hpcloud
-    @novafizz = NovaFizz.new(:logger => @logger,
-                             :username => os_username2,
-                             :password => os_password2,
-                             :authtenant => os_tenant_name2,
-                             :auth_url => os_auth_url2,
-                             :region => os_region_name2,
-                             :service_type => 'compute')
+      @novafizz = NovaFizz.new(:logger => @logger,
+                               :username => os_username2,
+                               :password => os_password2,
+                               :authtenant => os_tenant_name2,
+                               :auth_url => os_auth_url2,
+                               :region => os_region_name2,
+                               :service_type => 'compute') unless @novafizz and @novafizz.is_openstack_auth_ok
   end
 
 
@@ -134,13 +129,10 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
   end
 
-  def scp_custom_script_to_vm
-    local_file = create_custom_script_file()
-    remote_file = 'custom-script'
-    @novafizz.scp_file(@creds, local_file, remote_file)
-
-    #chmod that badboy
-    @novafizz.run_commands(@creds,"sudo chmod +x #{remote_file}".split(','))
+  def scp_custom_script_to_vm()
+    script_file = create_file_in_memory(vm_user_data_script2,'custom-script')
+    @novafizz.scp_file(@creds, script_file, script_file. name)
+    @novafizz.run_commands(@creds,"sudo chmod +x #{script_file.name}".split(','))
   end
 
   def execute_ssh_commands_on_vm()
@@ -194,175 +186,50 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
 
   def cleanup_vm
-
       connect_to_hpcloud()
-
       write_log "Delete cloud vm and key with name '#{vm_name2}'..."
       @novafizz.delete_vm_and_key(vm_name2)
-  end
-
-  def check_console_log_for_errors(output)
-
-    return if result_validation_regex2 == '' or checkbox_validation_regex == false
-
-    job_regex = Regexp.new(result_validation_regex2)
-
-    matched_items = output.to_s.scan(job_regex)
-
-    if matched_items.count() > 0
-
-      write_log "Found match for regex '#{job_regex}' in console output!"
-
-      matched_items.each do |item|
-
-        write_log "***** FOUND MATCH ***** "
-        write_log item
-
-      end
-
-      raise "Failure due to validation regex finding '#{job_regex}' in console output!"
-    end
   end
 
 
 
   def wait_for_ssh(creds)
-
     write_log "Make sure SSH to #{creds[:ip]} is working. SSH into the VM and echo the hostname."
-
-    boot_wait_seconds = 10 # it really shouldn't take much longer than to boot a vm
     ssh_retry_interval_seconds = 5
-    ssh_retry_count = 20
+    ssh_retry_count = 1
+    ssh_retries = 30
 
-    full_output = ''
-    result=0
-
-    for i in 1..ssh_retry_count
-      begin
-        @logger.info "Try ssh connect #{i} of #{ssh_retry_count}..."
-        @novafizz.run_commands(creds, 'hostname,hostname -d'.split(',')) do |output|
-          full_output+=output
-          write_log output
-        end
-        break
-      rescue Exception => e
-        @logger.info "Connect attempt #{i} of #{ssh_retry_count} failed ... wait #{ssh_retry_interval_seconds} seconds."
-        @logger.info e.message
-
-        sleep(ssh_retry_interval_seconds)
-
-        next
+    begin
+      @logger.info "Try ssh connect #{ssh_retry_count} of #{ssh_retries}...\n"
+      @novafizz.run_commands(creds, 'hostname,hostname -d'.split(',')) do |output|
+        write_log output
       end
-    end
+    rescue Exception => e
+      @logger.info "Connect attempt #{ssh_retry_count} of #{ssh_retries} failed ... wait #{ssh_retry_interval_seconds} seconds.\n"
+      @logger.info e.message
+      ssh_retry_count += 1
+      sleep(ssh_retry_interval_seconds)
+      retry unless ssh_retry_count == ssh_retries
 
-    if result != 0
-
-      error_message = "SSH #{creds[:ssh_shell_user]}@#{creds[:ip]} timed out after #{(ssh_poll_interval_seconds*ssh_retry_count).to_s} seconds.\n"
+      error_message = "SSH #{creds[:ssh_shell_user]}@#{creds[:ip]} timed out after #{(ssh_retry_interval_seconds*ssh_retries).to_s} seconds.\n"
       error_message << "Check defined security groups and make sure 22 is open for jenkins master or slave node."
-      @logger.info error_message
       raise error_message
     end
   end
 
-  def create_custom_script_file
-
-    # creates a script file from the user data provided in jenkins vm_user_data_script2
-
-    file_path = @env['WORKSPACE'] + '/custom-script'
-
-    begin
-      File.open(file_path, 'w') do |f|
-        vm_user_data_script2.split(/[\n]/).each do |line|
-          f.puts(line)
-        end
-        f.close
-      end
-    rescue
-      raise "Error with writing custom-script at '#{file_path}'"
-    end
-
-    file_path
-  end
-
-
-  def beautify_command_script(cmd)
-
-    # split commands on line breaks
-    # make sure each line ends with &&
-    # add missing $$
-
-    cleaned_script = ''
-    reg_match_doubleamps = Regexp.new(/&&$/)
-
-    cmd.split(/[\n]/).each do |line|
-
-      if line.rstrip.lstrip == ''
-      else
-        if reg_match_doubleamps.match(line.lstrip.rstrip)
-          cleaned_script += line.lstrip.rstrip + ' '
-        else
-          cleaned_line = line.lstrip.rstrip + ' && '
-          cleaned_script += cleaned_line
-        end
-      end
-    end
-
-    # the last line no need ddollars
-    cleaned_script = cleaned_script.lstrip.rstrip.chomp("&&")
-
-    write_log 'SSH command script has been beautified for non line-by-line mode:'
-    write_log cleaned_script
-    write_log ' '
-
-    cleaned_script
-  end
-
 
   def inject_env_vars
-
-      # loop through plugin inputs2 - yes number two - (it's a copy - remember this)
+      # loop through plugin inputs2 - yes number two (it's a copy - remember this)
       # scan for pattern $MYVAR in the input text
       instance_variables.sort.each do |input| if input[-1,1] == '2'
-
         plugin_input_name = input.to_s
-        input_instance_var_name = plugin_input_name[1..-1]
-
         injected_var_matches = eval(plugin_input_name).to_s.scan(/\$\w+/)
         injected_var_matches.each do |match|
-
-          #@logger.info 'PLUGIN INPUT NAME: ' + plugin_input_name[1..-1].to_s
-          #@logger.info 'MATCH VAR: ' + match[1..-1]
-
           @env.each do |key, value|
-
             if key.to_s == match[1..-1]
-
-              @logger.info "INJECT ENV var #{match} into boot VM plugin input #{plugin_input_name[1..-1].to_s}"
-
-              #write_log key.to_s + ':' + value
-              #
-              #write_log 'PERFORM REPLACE PLUGIN INPUT TEXT:'
-              #write_log eval(plugin_input_name)
-
+              @logger.info "[Boot HP Cloud VM] - Inject var #{match} into boot VM plugin input #{plugin_input_name[1..-1].to_s}"
               updated_text = eval(plugin_input_name).gsub(match,value)
-
-              #write_log 'UPDATED TEXT IS:'
-              #write_log updated_text
-              #
-              #
-              #write_log 'UPDATED VARIABLE IS:'
-              #write_log plugin_input_name[1..-1]
-              #write_log updated_text
-
-              eval_string = "@#{plugin_input_name[1..-1]} = \"#{updated_text.to_s}\""
-
-              #write_log 'EVAL STRING: ' + eval_string
-
-              eval(eval_string)
-
-              #write_log 'VARIABLE IZxxxxxZZ NOW:' + eval("@#{plugin_input_name[1..-1]}")
-
-
+              eval("@#{plugin_input_name[1..-1]} = \"#{updated_text.to_s}\"")
             end
           end
         end
@@ -370,9 +237,31 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     end
   end
 
-  def fail_and_halt_build
-    @build.native.setResult(Java.hudson.model.Result::FAILURE)
-    @build.halt
+  def create_file_in_memory(data, filename)
+
+    # you may have permission to run a program and use memory
+    # however, you may or may not have permission to write to disk
+    # this appears very true with jenkins slave nodes
+    # create a file in memory and save some pain
+    file = StringIO.new(data)
+    file.class.class_eval { attr_accessor :name }
+    file.name = filename
+
+    def file.rindex arg
+      name.rindex arg
+    end
+
+    def file.[] arg
+      name[arg]
+    end
+
+    def file.open(*mode, &block)
+      self.rewind
+      block.call(self) if block
+      return self
+    end
+
+    file
   end
 
   def print_debug_info
@@ -406,24 +295,6 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     @logger.debug ' '
   end
 
-  #def test_secret
-  #
-  #  # needs to figure out how to encrypt and decrypt password inputs
-  #
-  #  # shows encrypting and decrypting
-  #  secret = Secret.fromString('whatthe')
-  #  write_log secret
-  #  write_log 'w+HH73YlwzjK4ApC/atq1K2cqkUe+Cfc0Hql8Ircx0g='
-  #
-  #  secret2 = Secret.toString(secret)
-  #
-  #  write_log secret2
-  #
-  #  secret3 = Secret.toString('w+HH73YlwzjK4ApC/atq1K2cqkUe+Cfc0Hql8Ircx0g=')
-  #
-  #  write_log secret3
-  #
-  #
-  #end
+
 
 end #class
