@@ -62,7 +62,6 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
   rescue Exception => e
     @logger.info "ERROR: with boot HPCloud VM"
     @logger.info e.message
-    @logger.info e.backtrace.inspect
     @build.native.setResult(Java.hudson.model.Result::FAILURE)
   ensure
     cleanup_vm() unless !checkbox_delete_vm_at_end
@@ -140,14 +139,11 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
       write_log "ssh #{@creds[:ssh_shell_user2]}@#{@creds[:ip]} and run commands line-by-line:"
       print_with_command_numbers(ssh_shell_commands2)
 
-      full_output = ''
-
       write_log '****** BEGIN RUN COMMANDS ******'
       cmds = build_commmands_array(ssh_shell_commands2)
 
       @novafizz.run_commands(@creds, cmds) do |output|
         @logger.info output
-        full_output << ' ' << output
       end
   end
 
