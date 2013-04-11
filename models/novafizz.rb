@@ -12,7 +12,7 @@ class NovaFizz
 
     @logger = opts[:logger]
 
-    @logger.info "CREATE CONNECTION:"
+    @logger.info "HP CLOUD CONNECTION:"
     @logger.info "USER: #{opts[:username]}"
     @logger.info "PASS: *******"
     @logger.info "TENANT_NAME: #{opts[:authtenant]}"
@@ -193,6 +193,7 @@ class NovaFizz
   end
 
   def delete_vm_and_key(name)
+
     delete_vm_if_exists(name)
     delete_keypair_if_exists(replace_period_with_dash(name))
   end
@@ -206,9 +207,10 @@ class NovaFizz
     begin
       s = server_by_name name
       return true if s
-    rescue OpenStack::Exception::ItemNotFound
-       @logger.info "VM with #{name} doesn't exist."
-      return false
+    rescue Exception => e
+       @logger.info "Error when checking if server exists."
+       @logger.info e.message
+       return false
     else
       return false
     end
@@ -221,67 +223,71 @@ class NovaFizz
   def delete_vm_if_exists(name)
     s = server_by_name name
     s.delete! if s
-    wait_for_vm_delete(name)
   end
 
   def wait_for_vm_delete(name)
 
-    ssh_retry_interval_seconds = 10 # it really shouldn't take much longer than this to delete a node
+    ssh_retry_interval_seconds = 10
     ssh_retry_count = 10
     sleep(ssh_retry_interval_seconds)
 
-    for i in 1..ssh_retry_count
-      begin
-        break unless server_exists(name)
-        @logger.info "Wait attempt #{i} of #{ssh_retry_count} for deletion of vm '#{name}'... wait #{ssh_retry_interval_seconds} seconds."
-        sleep(ssh_retry_interval_seconds)
-      rescue Exception => e
-        @logger.info e.message
-        next
-      end
+
+    begin
+
+      server_exists(name)
+
+      @logger.info "Wait attempt #{i} of #{ssh_retry_count} for deletion of vm '#{name}'... wait #{ssh_retry_interval_seconds} seconds."
+      sleep(ssh_retry_interval_seconds)
+    rescue Exception => e
+
+
+      @logger.info e.message
+
     end
+
 
     if(server_exists(name))
       raise "There is an issue with deleting the vm #{name} in a timely fashion."
     end
-
   end
 
 
   def run_commands(creds, command_array)
-    failed_cmd = nil
-    res = Net::SSH::Simple.sync do
-      ssh(creds[:ip], '/bin/bash',
-          :user => creds[:user],
-          :key_data => [creds[:key]],
-          :timeout => creds[:ssh_shell_timeout],
-          :global_known_hosts_file => ['/dev/null'],
-          :user_known_hosts_file => ['/dev/null']) do |e,c,d|
-        case e
-          when :start
-            command_array.each do |cmd|
-              failed_cmd = cmd
-              c.send_data "#{cmd}\n"
-            end
-            c.eof!
-          when :stdout
-            # read the input line-wise (it *will* arrive fragmented!)
-            (@buf ||= '') << d
-            while line = @buf.slice!(/(.*)\r?\n/)
-              yield line.chomp if block_given?
-            end
-          when :stderr
-            (@buf ||= '') << d
-            while line = @buf.slice!(/(.*)\r?\n/)
-              yield line.chomp if block_given?
-            end
+    failed_cmd = ''
+    begin
+      Net::SSH::Simple.sync do
+        ssh(creds[:ip], '/bin/bash',
+            :user => creds[:user],
+            :key_data => [creds[:key]],
+            :timeout => creds[:ssh_shell_timeout],
+            :global_known_hosts_file => ['/dev/null'],
+            :user_known_hosts_file => ['/dev/null']) do |e,c,d|
+          case e
+            when :start
+              command_array.each do |cmd|
+                failed_cmd = cmd.to_s
+                c.send_data "#{cmd}\n"
+              end
+              c.eof!
+            when :stdout
+              # read the input line-wise (it *will* arrive fragmented!)
+              (@buf ||= '') << d
+              while line = @buf.slice!(/(.*)\r?\n/)
+                yield line.chomp if block_given?
+              end
+            when :stderr
+              (@buf ||= '') << d
+              while line = @buf.slice!(/(.*)\r?\n/)
+                yield line.chomp if block_given?
+              end
+          end
         end
       end
+    rescue Exception => e
+      @logger.info "ERROR: when running the command #{failed_cmd}"
+      @logger.info e.message
+      raise e
     end
-    if res.exit_code != 0
-      raise "command #{failed_cmd} failed on #{creds[:ip]}:\n#{res.stderr}"
-    end
-    res
   end
 
   def scp_file(creds, local_file_path, remote_file_path)

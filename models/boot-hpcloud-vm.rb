@@ -24,10 +24,15 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :ssh_shell_commands,
               :ssh_shell_timeout,
               :ssh_shell_user,
+              :ssh_connect_retry_int,
               :checkbox_delete_vm_at_start,
               :checkbox_delete_vm_at_end,
               :checkbox_user_data,
               :checkbox_ssh_shell_script,
+              :checkbox_custom_retry,
+              :retry_connect_hpcloud_int,
+              :retry_create_vm_int,
+              :retry_delete_vm_int,
               :os_username2,
               :os_password2,
               :os_tenant_name2,
@@ -64,20 +69,30 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     @logger.info e.message
     @build.native.setResult(Java.hudson.model.Result::FAILURE)
   ensure
-    cleanup_vm() unless !checkbox_delete_vm_at_end
+    delete_vm_and_key() unless !checkbox_delete_vm_at_end
   end
 
 
   def connect_to_hpcloud
     if @novafizz == nil or @novafizz.is_openstack_connection_alive == false
-       @logger.info 'Create New OpenStack Connection...'
-       @novafizz = NovaFizz.new(:logger => @logger,
-                               :username => os_username2,
-                               :password => os_password2,
-                               :authtenant => os_tenant_name2,
-                               :auth_url => os_auth_url2,
-                               :region => os_region_name2,
-                               :service_type => 'compute')
+      begin
+        write_log 'Create New HP Cloud Compute Connection...'
+        @novafizz = NovaFizz.new(:logger => @logger,
+                                 :username => os_username2,
+                                 :password => os_password2,
+                                 :authtenant => os_tenant_name2,
+                                 :auth_url => os_auth_url2,
+                                 :region => os_region_name2,
+                                 :service_type => 'compute')
+      rescue Exception => e
+        @logger.info "Connect to HP Cloud Compute failed ... wait 5 seconds and retry."
+        @logger.info e.message
+        sleep(5)
+        counter += 1
+
+        retry unless  counter >= retry_connect_hpcloud_int.to_i
+        raise "Connect to HP Cloud Compute failed after #{retry_connect_hpcloud_int} retries."
+      end
     end
   end
 
@@ -93,18 +108,9 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
       @creds = {:ip => @novafizz.server_by_name(vm_name2).accessipv4,
                :user => ssh_shell_user2,
                :key => @novafizz.get_key(vm_name2, File.expand_path("~/.ssh/hpcloud-keys/" + os_region_name)),
-               :ssh_shell_timeout => Integer(ssh_shell_timeout2)}
+               :ssh_shell_timeout => ssh_shell_timeout2.to_i}
     else
-
-      if @novafizz.server_exists(vm_name2)
-        write_log "Delete VM with name '#{vm_name2}'..."
-        @novafizz.delete_vm_if_exists(vm_name2)
-      end
-
-      if @novafizz.keypair_exists(@novafizz.replace_period_with_dash(vm_name2))
-        write_log "Delete key with name '#{@novafizz.replace_period_with_dash(vm_name2)}'..."
-        @novafizz.delete_keypair_if_exists(@novafizz.replace_period_with_dash(vm_name2))
-      end
+      delete_vm_and_key()
 
       write_log "Booting a new VM..."
 
@@ -119,16 +125,13 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
       write_log 'VM booted at IP Address: ' + @creds[:ip]
       write_log @creds[:key]
 
-      @creds[:ssh_shell_timeout] = Integer(ssh_shell_timeout2)
+      @creds[:ssh_shell_timeout] = ssh_shell_timeout2.to_i
 
       #if vm_floating_ip != ''
       #  @novafizz.assign_floating_ip(vm_name,vm_floating_ip)
       #end
-
     end
-
     wait_for_ssh(@creds)
-
   end
 
   def scp_custom_script_to_vm()
@@ -138,16 +141,14 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
   end
 
   def execute_ssh_commands_on_vm()
-
-      write_log "ssh #{@creds[:ssh_shell_user2]}@#{@creds[:ip]} and run commands line-by-line:"
-      print_with_command_numbers(ssh_shell_commands2)
-
-      write_log '****** BEGIN RUN COMMANDS ******'
-      cmds = build_commmands_array(ssh_shell_commands2)
-
-      @novafizz.run_commands(@creds, cmds) do |output|
-        @logger.info output
-      end
+    write_log '****** COMMAND SUMMARY ******'
+    write_log "ssh #{ssh_shell_user2}@#{@creds[:ip]} and run commands line-by-line:"
+    print_with_command_numbers(ssh_shell_commands2)
+    write_log '****** BEGIN RUN COMMANDS ******'
+    cmds = build_commmands_array(ssh_shell_commands2)
+    @novafizz.run_commands(@creds, cmds) do |output|
+      @logger.info output
+    end
   end
 
   def print_with_command_numbers(commands_string)
@@ -182,35 +183,41 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     command_array
   end
 
-
-
-  def cleanup_vm
-      connect_to_hpcloud()
-      write_log "Delete cloud vm and key with name '#{vm_name2}'..."
+  def delete_vm_and_key
+    connect_to_hpcloud()
+    begin
+      write_log "Delete cloud VM and key with name '#{vm_name2}'..."
       @novafizz.delete_vm_and_key(vm_name2)
+    rescue Exception => e
+      @logger.info "Delete VM #{vm_name2} failed ... wait 5 seconds and retry."
+      @logger.info e.message
+      sleep(5)
+      counter += 1
+
+      retry unless retry_delete_vm_int.to_i <= counter
+      raise "Delete VM '#{vm_name2}' failed failed after #{retry_delete_vm_int} retries."
+    end
   end
-
-
 
   def wait_for_ssh(creds)
     write_log "Make sure SSH to #{creds[:ip]} is working. SSH into the VM and echo the hostname."
     ssh_retry_interval_seconds = 5
     ssh_retry_count = 1
-    ssh_retries = 30
 
     begin
-      @logger.info "Try ssh connect #{ssh_retry_count} of #{ssh_retries}...\n"
+      @logger.info "Try ssh connect #{ssh_retry_count} of #{ssh_connect_retry_int}...\n"
       @novafizz.run_commands(creds, 'hostname,hostname -d'.split(',')) do |output|
         write_log output
       end
     rescue Exception => e
-      @logger.info "Connect attempt #{ssh_retry_count} of #{ssh_retries} failed ... wait #{ssh_retry_interval_seconds} seconds.\n"
+      @logger.info "Connect attempt #{ssh_retry_count} of #{ssh_connect_retry_int} failed ... wait #{ssh_retry_interval_seconds} seconds.\n"
       @logger.info e.message
       ssh_retry_count += 1
       sleep(ssh_retry_interval_seconds)
-      retry unless ssh_retry_count == ssh_retries
 
-      error_message = "SSH #{creds[:ssh_shell_user]}@#{creds[:ip]} timed out after #{(ssh_retry_interval_seconds*ssh_retries).to_s} seconds.\n"
+      retry unless ssh_connect_retry_int.to_i < ssh_retry_count
+
+      error_message = "SSH #{ssh_shell_user2}@#{creds[:ip]} timed out after #{(ssh_retry_interval_seconds*ssh_connect_retry_int.to_i).to_s} seconds.\n\n"
       error_message << "Check defined security groups and make sure 22 is open for jenkins master or slave node."
       raise error_message
     end

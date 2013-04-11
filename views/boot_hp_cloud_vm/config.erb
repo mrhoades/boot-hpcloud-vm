@@ -11,7 +11,7 @@
          end
          f.entry :title => 'Delete VM at Beginning',
                  :field => 'checkbox_delete_vm_at_start',
-                 :description => 'With great power comes great responsibility. This deletes any VM using the VM Name entered, in the account you configure here. Please take caution to not delete your coworkers infrastructure!' do
+                 :description => 'With great power comes great responsibility. This deletes any VM  and key using the VM Name entered, in the account you configure here. Please take caution to not delete your coworkers infrastructure!' do
            f.checkbox :clazz => 'required', :default => 'false'
          end
          f.entry :title => 'Delete VM at End',
@@ -85,13 +85,30 @@
                    :description => 'Provide the username that will ssh to VM' do
              f.textbox :clazz => 'required', :default => 'ubuntu'
            end
-
-           f.entry :title => 'SSH Timeout Seconds',
+           f.entry :title => 'SSH Idle Timeout Seconds',
                    :field => 'ssh_shell_timeout',
-                   :description => 'Try a timeout that is 20% above expected job length' do
+                   :description => 'Useful for squelching ssh scripts that have hung.' do
              f.textbox :clazz => 'required', :default => '3600'
            end
-
+           f.entry :title => 'SSH Connect Retries',
+                   :field => 'ssh_connect_retry_int',
+                   :description => 'Default is 30 connect attempts with an interval of 5 seconds' do
+             f.textbox :clazz => 'required', :default => '30'
+           end
+         end
+         f.optionalBlock :title => 'Configure Custom Retry Settings',
+                         :field => 'checkbox_custom_retry',
+                         :inline => true do
+           f.entry :title => 'Connect to HP Cloud',
+                   :field => 'retry_connect_hpcloud_int',
+                   :description => 'If connect fails intermittently, bump this up to reduce jitter.' do
+             f.textbox :clazz => 'required', :default => '1'
+           end
+           f.entry :title => 'Delete VM Retry',
+                   :field => 'retry_delete_vm_int',
+                   :description => 'If delete VM fails intermittently, bump this up to reduce jitter.' do
+             f.textbox :clazz => 'required', :default => '1'
+           end
          end
 
     %>
