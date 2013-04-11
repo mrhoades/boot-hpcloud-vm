@@ -29,8 +29,10 @@ class NovaFizz
 
   end
 
-  def is_openstack_auth_ok
-    if @os.authok?
+  def is_openstack_connection_alive
+    # check for a result to see if connection is alive
+    flavors = @os.flavors
+    if flavors.length > 0
       return true
     end
   rescue

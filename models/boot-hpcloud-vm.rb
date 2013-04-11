@@ -69,13 +69,16 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
 
   def connect_to_hpcloud
-      @novafizz = NovaFizz.new(:logger => @logger,
+    if @novafizz == nil or @novafizz.is_openstack_connection_alive == false
+       @logger.info 'Create New OpenStack Connection...'
+       @novafizz = NovaFizz.new(:logger => @logger,
                                :username => os_username2,
                                :password => os_password2,
                                :authtenant => os_tenant_name2,
                                :auth_url => os_auth_url2,
                                :region => os_region_name2,
-                               :service_type => 'compute') unless @novafizz and @novafizz.is_openstack_auth_ok
+                               :service_type => 'compute')
+    end
   end
 
 
