@@ -250,42 +250,35 @@ class NovaFizz
 
 
   def run_commands(creds, command_array)
-    failed_cmd = ''
-    begin
-      Net::SSH::Simple.sync do
-        ssh(creds[:ip], '/bin/bash',
-            :user => creds[:user],
-            :key_data => [creds[:key]],
-            :timeout => creds[:ssh_shell_timeout],
-            :global_known_hosts_file => ['/dev/null'],
-            :user_known_hosts_file => ['/dev/null']) do |e,c,d|
-          case e
-            when :start
-              command_array.each do |cmd|
-                failed_cmd = cmd.to_s
-                c.send_data "#{cmd}\n"
-              end
-              c.eof!
-            when :stdout
-              # read the input line-wise (it *will* arrive fragmented!)
-              (@buf ||= '') << d
-              while line = @buf.slice!(/(.*)\r?\n/)
-                yield line.chomp if block_given?
-              end
-            when :stderr
-              (@buf ||= '') << d
-              while line = @buf.slice!(/(.*)\r?\n/)
-                yield line.chomp if block_given?
-              end
-          end
+    Net::SSH::Simple.sync do
+      ssh(creds[:ip], '/bin/bash',
+          :user => creds[:user],
+          :key_data => [creds[:key]],
+          :timeout => creds[:ssh_shell_timeout],
+          :global_known_hosts_file => ['/dev/null'],
+          :user_known_hosts_file => ['/dev/null']) do |e,c,d|
+        case e
+          when :start
+            command_array.each do |cmd|
+              c.send_data "#{cmd}\n"
+            end
+            c.eof!
+          when :stdout
+            # read the input line-wise (it *will* arrive fragmented!)
+            (@buf ||= '') << d
+            while line = @buf.slice!(/(.*)\r?\n/)
+              yield line.chomp if block_given?
+            end
+          when :stderr
+            (@buf ||= '') << d
+            while line = @buf.slice!(/(.*)\r?\n/)
+              yield line.chomp if block_given?
+            end
         end
       end
-    rescue Exception => e
-      @logger.info "ERROR: when running the command #{failed_cmd}"
-      @logger.info e.message
-      raise e
     end
   end
+
 
   def scp_file(creds, local_file_path, remote_file_path)
 

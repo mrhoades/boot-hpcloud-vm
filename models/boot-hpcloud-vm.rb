@@ -65,11 +65,16 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     scp_custom_script_to_vm() unless !checkbox_user_data
     execute_ssh_commands_on_vm() unless !checkbox_ssh_shell_script
   rescue Exception => e
-    @logger.info "ERROR: with boot HPCloud VM"
+    @logger.info "*******************\n****** ERROR ******\n****** ERROR ******\n"
     @logger.info e.message
+    @logger.info "\n****** ERROR ******\n****** ERROR ******\n*******************\n"
+
     @build.native.setResult(Java.hudson.model.Result::FAILURE)
   ensure
-    delete_vm_and_key() unless !checkbox_delete_vm_at_end
+    begin
+      @logger.info "\n****** CLEANUP ******\n"
+      delete_vm_and_key()
+    end unless !checkbox_delete_vm_at_end
   end
 
 
