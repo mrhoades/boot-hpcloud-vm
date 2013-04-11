@@ -188,6 +188,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     begin
       write_log "Delete cloud VM and key with name '#{vm_name2}'..."
       @novafizz.delete_vm_and_key(vm_name2)
+      @novafizz.wait_for_vm_delete(vm_name2)
     rescue Exception => e
       @logger.info "Delete VM #{vm_name2} failed ... wait 5 seconds and retry."
       @logger.info e.message

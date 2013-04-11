@@ -227,28 +227,25 @@ class NovaFizz
 
   def wait_for_vm_delete(name)
 
-    ssh_retry_interval_seconds = 10
-    ssh_retry_count = 10
-    sleep(ssh_retry_interval_seconds)
-
+    retry_interval_seconds = 5
+    retry_count = 20
 
     begin
+      (1..retry_count).each do |i|
 
-      server_exists(name)
-
-      @logger.info "Wait attempt #{i} of #{ssh_retry_count} for deletion of vm '#{name}'... wait #{ssh_retry_interval_seconds} seconds."
-      sleep(ssh_retry_interval_seconds)
+        if server_exists(name)
+          @logger.info "Wait attempt #{i} of #{retry_count} for deletion of VM '#{name}'... wait #{retry_interval_seconds} seconds."
+          sleep(ssh_retry_interval_seconds)
+        else
+          return true
+        end
+      end
     rescue Exception => e
-
-
+      @logger.info "Error in wait_for_vm_delete"
       @logger.info e.message
-
     end
 
-
-    if(server_exists(name))
-      raise "There is an issue with deleting the vm #{name} in a timely fashion."
-    end
+    raise "There is an issue with deleting the vm #{name} in a timely fashion."
   end
 
 
