@@ -235,7 +235,7 @@ class NovaFizz
 
         if server_exists(name)
           @logger.info "Wait attempt #{i} of #{retry_count} for deletion of VM '#{name}'... wait #{retry_interval_seconds} seconds."
-          sleep(ssh_retry_interval_seconds)
+          sleep(retry_interval_seconds)
         else
           return true
         end
