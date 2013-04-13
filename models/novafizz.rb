@@ -193,7 +193,6 @@ class NovaFizz
   end
 
   def delete_vm_and_key(name)
-
     delete_vm_if_exists(name)
     delete_keypair_if_exists(replace_period_with_dash(name))
   end
@@ -204,14 +203,19 @@ class NovaFizz
   end
 
   def server_exists(name)
+    @logger.info "Checking to see if VM with #{name} already exists..."
     begin
       s = server_by_name name
-      return true if s
+      if s
+        @logger.info "Found existing VM #{name}."
+        return true
+      end
     rescue Exception => e
-       @logger.info "Error when checking if server exists."
-       @logger.info e.message
-       return false
+      @logger.info "Error when checking if server exists."
+      @logger.info e.message
+      return false
     else
+      @logger.info "VM #{name} does not exist."
       return false
     end
   end
@@ -250,7 +254,7 @@ class NovaFizz
 
 
   def run_commands(creds, command_array)
-    Net::SSH::Simple.sync do
+    result = Net::SSH::Simple.sync do
       ssh(creds[:ip], '/bin/bash',
           :user => creds[:user],
           :key_data => [creds[:key]],
@@ -274,15 +278,28 @@ class NovaFizz
             while line = @buf.slice!(/(.*)\r?\n/)
               yield line.chomp if block_given?
             end
+          when :exit_signal
+            @logger.debug 'exit_signal triggered'
         end
       end
     end
+  rescue Net::SSH::Simple::Error => e
+    raise "EXCEPTION in run_commands over ssh '#{e.result.exception}' STDERR: #{e.result.stderr}"
+  ensure
+    if result.exit_code != 0 or result.stderr != ''
+      raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stdout}\n#{result.stderr}"
+    end
   end
 
+  def write_debug(string)
+    @logger.debug ' '
+    @logger.debug string
+    @logger.debug ' '
+  end
 
   def scp_file(creds, local_file_path, remote_file_path)
 
-    @logger.info "SCP file #{local_file_path} to server and put at #{remote_file_path}"
+    write_debug "SCP file #{local_file_path} to server and put at #{remote_file_path}"
 
     begin
       Net::SSH::Simple.sync do

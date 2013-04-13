@@ -92,8 +92,13 @@
            end
            f.entry :title => 'SSH Connect Retries',
                    :field => 'ssh_connect_retry_int',
-                   :description => 'Default is 30 connect attempts with an interval of 5 seconds' do
+                   :description => 'Waits for SSH services on newly booted VM to startup. Default is 30 connect attempts with an interval of 5 seconds.' do
              f.textbox :clazz => 'required', :default => '30'
+           end
+           f.entry :title => 'Fail On Soft Command Errors',
+                   :field => 'ssh_fail_on_soft_error',
+                   :description => 'Fails job when running unknown commands or against files that do not exist' do
+             f.checkbox :clazz => '', :default => 'false'
            end
          end
          f.optionalBlock :title => 'Configure Custom Retry Settings',
