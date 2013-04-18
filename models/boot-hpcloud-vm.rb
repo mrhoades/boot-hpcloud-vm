@@ -25,6 +25,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :ssh_shell_timeout,
               :ssh_shell_user,
               :ssh_connect_retry_int,
+              :ssh_fail_on_soft_error,
               :checkbox_delete_vm_at_start,
               :checkbox_delete_vm_at_end,
               :checkbox_user_data,
@@ -65,9 +66,9 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     scp_custom_script_to_vm() unless !checkbox_user_data
     execute_ssh_commands_on_vm() unless !checkbox_ssh_shell_script
   rescue Exception => e
-    @logger.info "*******************\n****** ERROR ******\n****** ERROR ******\n"
+    @logger.info "*******************\n****** ERROR-ERROR-BEGIN ******\n"
     @logger.info e.message
-    @logger.info "\n****** ERROR ******\n****** ERROR ******\n*******************\n"
+    @logger.info "\n****** ERROR-ERROR-END ******\n*******************\n"
 
     @build.native.setResult(Java.hudson.model.Result::FAILURE)
   ensure
@@ -179,7 +180,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     commands.each_with_index do |cmd,index|
 
       formatted_cmd = " echo ' ' && echo ' ' && "
-      formatted_cmd << " echo 'RUN_COMMAND_#{index}: #{cmd}' && echo ' ' && "
+      formatted_cmd << " echo \"COMMAND_#{index}: #{cmd}\" && echo ' ' && "
       formatted_cmd << "#{cmd}\n"
 
       command_array.push(formatted_cmd)

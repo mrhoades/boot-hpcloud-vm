@@ -1,0 +1,105 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<project>
+  <actions/>
+  <description></description>
+  <keepDependencies>false</keepDependencies>
+  <properties>
+    <hudson.model.ParametersDefinitionProperty>
+      <parameterDefinitions>
+        <hudson.model.PasswordParameterDefinition>
+          <name>PASSWORD</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.PasswordParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>USERNAME</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>VMNAME</name>
+          <description></description>
+          <defaultValue></defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>CUSTOM_SCRIPT</name>
+          <description></description>
+          <defaultValue>
+            echo &apos;Hello from custom-script on VM 1!&apos;
+            echo &apos;Hello from custom-script on VM 2!&apos;
+          </defaultValue>
+        </hudson.model.StringParameterDefinition>
+        <hudson.model.StringParameterDefinition>
+          <name>SSH_COMMANDS</name>
+          <description></description>
+          <defaultValue>
+            echo &apos;Hello from VM !&apos;
+            hostname
+          </defaultValue>
+        </hudson.model.StringParameterDefinition>
+      </parameterDefinitions>
+    </hudson.model.ParametersDefinitionProperty>
+  </properties>
+  <scm class="hudson.scm.NullSCM"/>
+  <canRoam>true</canRoam>
+  <disabled>false</disabled>
+  <blockBuildWhenDownstreamBuilding>false</blockBuildWhenDownstreamBuilding>
+  <blockBuildWhenUpstreamBuilding>false</blockBuildWhenUpstreamBuilding>
+  <triggers class="vector"/>
+  <concurrentBuild>false</concurrentBuild>
+  <builders>
+    <ruby-proxy-object>
+      <ruby-object ruby-class="Jenkins::Tasks::BuilderProxy" pluginid="boot-hpcloud-vm">
+        <pluginid pluginid="boot-hpcloud-vm" ruby-class="String">boot-hpcloud-vm</pluginid>
+        <object ruby-class="BootHPCloudVM" pluginid="boot-hpcloud-vm">
+          <ssh__connect__retry__int2 pluginid="boot-hpcloud-vm" ruby-class="String">30</ssh__connect__retry__int2>
+          <os__password2 pluginid="boot-hpcloud-vm" ruby-class="String">$PASSWORD</os__password2>
+          <os__region__name2 pluginid="boot-hpcloud-vm" ruby-class="String">az-1.region-a.geo-1</os__region__name2>
+          <checkbox__custom__retry pluginid="boot-hpcloud-vm" ruby-class="FalseClass">false</checkbox__custom__retry>
+          <checkbox__delete__vm__at__end2 pluginid="boot-hpcloud-vm" ruby-class="TrueClass">true</checkbox__delete__vm__at__end2>
+          <ssh__fail__on__soft__error reference="../checkbox__custom__retry"/>
+          <checkbox__ssh__shell__script reference="../checkbox__delete__vm__at__end2"/>
+          <vm__image__name pluginid="boot-hpcloud-vm" ruby-class="String">Ubuntu Precise 12.04 LTS Server 64-bit</vm__image__name>
+          <vm__security__groups pluginid="boot-hpcloud-vm" ruby-class="String">default</vm__security__groups>
+          <checkbox__custom__retry2 reference="../checkbox__custom__retry"/>
+          <os__tenant__name2 pluginid="boot-hpcloud-vm" ruby-class="String">mrhoades@hp.com-tenant1</os__tenant__name2>
+          <os__region__name reference="../os__region__name2"/>
+          <os__auth__url pluginid="boot-hpcloud-vm" ruby-class="String">https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/</os__auth__url>
+          <ssh__fail__on__soft__error2 reference="../checkbox__custom__retry"/>
+          <os__auth__url2 reference="../os__auth__url"/>
+          <vm__security__groups2 reference="../vm__security__groups"/>
+          <checkbox__delete__vm__at__start reference="../checkbox__delete__vm__at__end2"/>
+          <os__password reference="../os__password2"/>
+          <checkbox__ssh__shell__script2 reference="../checkbox__delete__vm__at__end2"/>
+          <retry__delete__vm__int2 pluginid="boot-hpcloud-vm" ruby-class="String">1</retry__delete__vm__int2>
+          <checkbox__user__data2 reference="../checkbox__delete__vm__at__end2"/>
+          <ssh__shell__timeout2 pluginid="boot-hpcloud-vm" ruby-class="String">3600</ssh__shell__timeout2>
+          <vm__name pluginid="boot-hpcloud-vm" ruby-class="String">$VMNAME</vm__name>
+          <vm__image__name2 reference="../vm__image__name"/>
+          <os__username2 pluginid="boot-hpcloud-vm" ruby-class="String">$OS_USERNAME</os__username2>
+          <checkbox__delete__vm__at__start2 reference="../checkbox__delete__vm__at__end2"/>
+          <vm__name2 reference="../vm__name"/>
+          <retry__connect__hpcloud__int2 pluginid="boot-hpcloud-vm" ruby-class="String">1</retry__connect__hpcloud__int2>
+          <ssh__shell__commands2 pluginid="boot-hpcloud-vm" ruby-class="String">$SSH_COMMANDS</ssh__shell__commands2>
+          <vm__flavor__name pluginid="boot-hpcloud-vm" ruby-class="String">standard.xsmall</vm__flavor__name>
+          <checkbox__user__data reference="../checkbox__delete__vm__at__end2"/>
+          <ssh__shell__user2 pluginid="boot-hpcloud-vm" ruby-class="String">ubuntu</ssh__shell__user2>
+          <vm__flavor__name2 reference="../vm__flavor__name"/>
+          <retry__delete__vm__int reference="../retry__delete__vm__int2"/>
+          <os__username reference="../os__username2"/>
+          <ssh__shell__user reference="../ssh__shell__user2"/>
+          <ssh__shell__timeout reference="../ssh__shell__timeout2"/>
+          <vm__user__data__script2 pluginid="boot-hpcloud-vm" ruby-class="String">$CUSTOM_SCRIPT</vm__user__data__script2>
+          <vm__user__data__script reference="../vm__user__data__script2"/>
+          <checkbox__delete__vm__at__end reference="../checkbox__delete__vm__at__end2"/>
+          <retry__connect__hpcloud__int reference="../retry__connect__hpcloud__int2"/>
+          <os__tenant__name reference="../os__tenant__name2"/>
+          <ssh__shell__commands reference="../ssh__shell__commands2"/>
+          <ssh__connect__retry__int reference="../ssh__connect__retry__int2"/>
+        </object>
+      </ruby-object>
+    </ruby-proxy-object>
+  </builders>
+  <publishers/>
+  <buildWrappers/>
+</project>

@@ -283,12 +283,17 @@ class NovaFizz
         end
       end
     end
+
+    if result.exit_code != 0
+      raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"
+    end
+
+    if result.stderr != ''
+      @logger.info "SOFT ERRORS:" + result.stderr
+    end
+
   rescue Net::SSH::Simple::Error => e
     raise "EXCEPTION in run_commands over ssh '#{e.result.exception}' STDERR: #{e.result.stderr}"
-  ensure
-    if result.exit_code != 0 or result.stderr != ''
-      raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stdout}\n#{result.stderr}"
-    end
   end
 
   def write_debug(string)
