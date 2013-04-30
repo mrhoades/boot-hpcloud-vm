@@ -46,7 +46,17 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :vm_user_data_script2,
               :ssh_shell_commands2,
               :ssh_shell_timeout2,
-              :ssh_shell_user2
+              :ssh_shell_user2,
+              :ssh_connect_retry_int2,
+              :ssh_fail_on_soft_error2,
+              :checkbox_delete_vm_at_start2,
+              :checkbox_delete_vm_at_end2,
+              :checkbox_user_data2,
+              :checkbox_ssh_shell_script2,
+              :checkbox_custom_retry2,
+              :retry_connect_hpcloud_int2,
+              :retry_create_vm_int2,
+              :retry_delete_vm_int2
 
 
   def initialize(attrs)
@@ -61,6 +71,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     @build = build
     @env = build.native.getEnvironment()
 
+    reset_dynamic_env_vars()
     inject_env_vars()
     boot_vm()
     scp_custom_script_to_vm() unless !checkbox_user_data
@@ -215,7 +226,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
     begin
       @logger.info "Try ssh connect #{ssh_retry_count} of #{ssh_connect_retry_int}...\n"
-      @novafizz.run_commands(creds, 'hostname,hostname -d'.split(',')) do |output|
+      @novafizz.run_commands(creds, "echo 'SUCCESSFULLY CONNECTED SSH!',hostname,hostname -d".split(',')) do |output|
         write_log output
       end
     rescue Exception => e
@@ -242,12 +253,25 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
         injected_var_matches.each do |match|
           @env.each do |key, value|
             if key.to_s == match[1..-1]
-              @logger.info "[Boot HP Cloud VM] - Inject var #{match} into boot VM plugin input #{plugin_input_name[1..-1].to_s}"
+              @logger.info "[Boot HP Cloud VM] - Inject var '#{match}' with value '#{value}' into boot VM plugin input #{plugin_input_name[1..-1].to_s}"
               updated_text = eval(plugin_input_name).gsub(match,value)
               eval("@#{plugin_input_name[1..-1]} = \"#{updated_text.to_s}\"")
             end
           end
         end
+      end
+    end
+  end
+
+  def reset_dynamic_env_vars()
+    # loop through vars2 and copy original value back into the var
+    # this will ensure that when gerrit triggers multiple jobs simultaneously
+    # they will always pick up the newly injected vars for the given job
+    instance_variables.sort.each do |input|
+      if input[-1,1] == '2' and input[1..-1] != 'build2'
+        og_input_name = input.to_s[1..-2]
+        og_value = eval(og_input_name)
+        eval("#{input.to_s} = \"#{og_value}\"")
       end
     end
   end
