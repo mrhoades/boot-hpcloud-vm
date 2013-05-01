@@ -3,6 +3,15 @@ Boot-HPCloud-VM
 
 Jenkins jruby plugin that boots an openstack vm, ssh to node and run commands. Props to Tim Miller (aka echohead) for the novawhiz code, jenkins-devstack-plugin prototype, and help with debugging.
 
+# Deploy plugin to Jenkins
+
+1. Login to your Jenkins instance as an admin user
+2. Manage Jenkins > Manage Plugins > Advanced Tab
+3. Upload the boot-hpcloud-vm.hpi plugin using the Upload dialog on Advanced Tab. Note that a build is provided for your convenience in this repo at pkg/boot-hpcloud-vm.hpi.
+4. Using Jenkins plugin manager, install required "Token Macro Plugin" and "ruby-runtime" plugins
+5. Restart Jenkins
+6. Now "Boot HP Cloud VM" will appear in job build steps dropdown
+
 
 # Development
 
@@ -23,6 +32,8 @@ Jenkins jruby plugin that boots an openstack vm, ssh to node and run commands. P
 
 
 # Gotchas:
+
+* "concurrent build execution" isn't supported at this time. I'm working on it though.
 
 * must be run with ruby 1.9: `export JRUBY_OPTS=--1.9` or `echo "compat.version=1.9" >> ~/.jrubyrc`
 
