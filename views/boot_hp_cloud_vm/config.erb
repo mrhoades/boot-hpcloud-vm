@@ -115,7 +115,11 @@
              f.textbox :clazz => 'required', :default => '1'
            end
          end
-
+         f.entry :title => 'Enable Verbose Logging',
+                 :field => 'checkbox_verbose_logging_enabled',
+                 :description => 'Enables more verbose logging output' do
+           f.checkbox :clazz => '', :default => 'false'
+         end
     %>
 
     </table>
