@@ -30,8 +30,11 @@ Jenkins jruby plugin that boots an openstack vm, ssh to node and run commands. P
 * `bundle install`
 * `gem install jpi` 
 * `jpi server`
-* Now login to jenkins at `http://localhost:8080`
+* Now see plugin in jenkins at http://localhost:8080
 
 === Build Plugin with 'Jenkins Ruby Plugin Tools'
 * `jpi build` 
+
+=== Getting Started Developing Ruby Plugins
+* https://github.com/jenkinsci/jenkins.rb/wiki/Getting-Started-With-Ruby-Plugins
 
