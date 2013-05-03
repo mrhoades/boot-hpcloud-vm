@@ -24,6 +24,7 @@ class BootVMVars
                 :retry_connect_hpcloud_int,
                 :retry_create_vm_int,
                 :retry_delete_vm_int,
+                :stderr_lines_int,
                 :checkbox_verbose_logging_enabled,
                 :creds
 

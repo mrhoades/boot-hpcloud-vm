@@ -36,7 +36,8 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :retry_connect_hpcloud_int,
               :retry_create_vm_int,
               :retry_delete_vm_int,
-              :checkbox_verbose_logging_enabled
+              :checkbox_verbose_logging_enabled,
+              :stderr_lines_int
 
   def initialize(attrs)
     attrs.each {|k, v| instance_variable_set "@#{k}", v}

@@ -117,8 +117,13 @@
          end
          f.entry :title => 'Enable Verbose Logging',
                  :field => 'checkbox_verbose_logging_enabled',
-                 :description => 'Enables more verbose logging output' do
+                 :description => 'Enables verbose logging output' do
            f.checkbox :clazz => '', :default => 'false'
+         end
+         f.entry :title => 'Trim STDERR Output',
+                 :field => 'stderr_lines_int',
+                 :description => 'Shows X lines from the end of stderr output' do
+           f.textbox :clazz => 'required', :default => '5'
          end
     %>
 

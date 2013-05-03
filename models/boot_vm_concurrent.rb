@@ -24,6 +24,7 @@ class BootVMConcurrent
                 :retry_connect_hpcloud_int,
                 :retry_create_vm_int,
                 :retry_delete_vm_int,
+                :stderr_lines_int,
                 :checkbox_verbose_logging_enabled
 
 
@@ -42,16 +43,19 @@ class BootVMConcurrent
     scp_custom_script_to_vm() unless @vars.checkbox_user_data == 'false'
     execute_ssh_commands_on_vm() unless @vars.checkbox_ssh_shell_script == 'false'
 
-  rescue Exception => e
-    @logger.info "*******************\n****** ERROR-ERROR-BEGIN ******\n"
-    @logger.info e.message
-    @logger.info "\n****** ERROR-ERROR-END ******\n*******************\n"
-
+  rescue Timeout::Error, Exception => e
+    @logger.info "**************************************\n****** ERROR-ERROR-BEGIN ******\n"
+    @logger.info "The last '#{@vars.stderr_lines_int}' lines from stderr...\n"
+    message_string_array = e.message.split(/[\n]/).to_a
+    show_x_lines_at_end = @vars.stderr_lines_int.to_i * -1
+    trimmed_error_output = message_string_array[show_x_lines_at_end..-1].join("\n")
+    @logger.info trimmed_error_output
+    @logger.info "\n****** ERROR-ERROR-END ******\n**************************************\n"
     @build.native.setResult(Java.hudson.model.Result::FAILURE)
   ensure
     begin
-      @logger.info "\n****** CLEANUP ******\n"
       if @vars.checkbox_delete_vm_at_end == 'true'
+        @logger.info "\n****** CLEANUP ******\n"
         delete_vm_and_key()
       end
     end
