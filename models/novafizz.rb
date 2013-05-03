@@ -203,7 +203,7 @@ class NovaFizz
   end
 
   def server_exists(name)
-    @logger.info "Checking to see if VM with #{name} already exists..."
+    @logger.info "Checking to see if VM with #{name} exists..."
     begin
       s = server_by_name name
       if s
@@ -288,9 +288,10 @@ class NovaFizz
       raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"
     end
 
-    if result.stderr != ''
-      @logger.info "SOFT ERRORS:" + result.stderr
-    end
+    # bugbug - fix this up so this only shows user configures verbose loggging
+    #if result.stderr != ''
+    #  @logger.info "SOFT ERRORS:" + result.stderr
+    #end
 
   rescue Net::SSH::Simple::Error => e
     raise "EXCEPTION in run_commands over ssh '#{e.result.exception}' STDERR: #{e.result.stderr}"

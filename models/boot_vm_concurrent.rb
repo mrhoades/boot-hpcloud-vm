@@ -39,8 +39,8 @@ class BootVMConcurrent
     #test_concurrency(build, listener)
 
     boot_vm()
-    scp_custom_script_to_vm() unless !@vars.checkbox_user_data
-    execute_ssh_commands_on_vm() unless !@vars.checkbox_ssh_shell_script
+    scp_custom_script_to_vm() unless @vars.checkbox_user_data == 'false'
+    execute_ssh_commands_on_vm() unless @vars.checkbox_ssh_shell_script == 'false'
 
   rescue Exception => e
     @logger.info "*******************\n****** ERROR-ERROR-BEGIN ******\n"
@@ -51,8 +51,10 @@ class BootVMConcurrent
   ensure
     begin
       @logger.info "\n****** CLEANUP ******\n"
-      delete_vm_and_key()
-    end unless !@vars.checkbox_delete_vm_at_end
+      if @vars.checkbox_delete_vm_at_end == 'true'
+        delete_vm_and_key()
+      end
+    end
   end
 
   def test_concurrency(build, listener)
@@ -95,7 +97,7 @@ class BootVMConcurrent
 
     connect_to_hpcloud()
 
-    if @novafizz.server_exists(@vars.vm_name) == true and checkbox_delete_vm_at_start == false
+    if @novafizz.server_exists(@vars.vm_name) == true && @vars.checkbox_delete_vm_at_start == 'false'
 
       write_log "Re-Using existing VM with name '#{@vars.vm_name}' ..."
 
@@ -180,7 +182,7 @@ class BootVMConcurrent
   def delete_vm_and_key
     connect_to_hpcloud()
     begin
-      if(@novafizz.server_exists(@vars.vm_name))
+      if(@novafizz.server_exists(@vars.vm_name) == true)
         write_log "Delete cloud VM and key with name '#{@vars.vm_name}'..."
         @novafizz.delete_vm_and_key(@vars.vm_name)
         @novafizz.wait_for_vm_delete(@vars.vm_name)
