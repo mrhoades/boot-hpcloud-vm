@@ -284,17 +284,17 @@ class NovaFizz
       end
     end
 
-    if result.exit_code != 0
-      raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"
-    end
-
-    # bugbug - fix this up so this only shows user configures verbose loggging
-    #if result.stderr != ''
-    #  @logger.info "SOFT ERRORS:" + result.stderr
-    #end
-
-  rescue Net::SSH::Simple::Error => e
-    raise "EXCEPTION in run_commands over ssh '#{e.result.exception}' STDERR: #{e.result.stderr}"
+  #  if result.exit_code != 0
+  #    raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"
+  #  end
+  #
+  #  # bugbug - fix this up so this only shows user configures verbose loggging
+  #  #if result.stderr != ''
+  #  #  @logger.info "SOFT ERRORS:" + result.stderr
+  #  #end
+  #
+  #rescue Net::SSH::Simple::Error => e
+  #  raise "EXCEPTION in run_commands over ssh '#{e.result.exception}' STDERR: #{e.result.stderr}"
   end
 
   def write_debug(string)

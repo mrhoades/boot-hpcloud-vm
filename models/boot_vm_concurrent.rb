@@ -43,15 +43,10 @@ class BootVMConcurrent
     scp_custom_script_to_vm() unless @vars.checkbox_user_data == 'false'
     execute_ssh_commands_on_vm() unless @vars.checkbox_ssh_shell_script == 'false'
 
-  rescue Timeout::Error, Exception => e
-    @logger.info "**************************************\n****** ERROR-ERROR-BEGIN ******\n"
-    @logger.info "The last '#{@vars.stderr_lines_int}' lines from stderr...\n"
-    message_string_array = e.message.split(/[\n]/).to_a
-    show_x_lines_at_end = @vars.stderr_lines_int.to_i * -1
-    trimmed_error_output = message_string_array[show_x_lines_at_end..-1].join("\n")
-    @logger.info trimmed_error_output
-    @logger.info "\n****** ERROR-ERROR-END ******\n**************************************\n"
-    @build.native.setResult(Java.hudson.model.Result::FAILURE)
+  rescue Timeout::Error => e
+    log_error(e)
+  rescue Exception => e
+    log_error(e)
   ensure
     begin
       if @vars.checkbox_delete_vm_at_end == 'true'
@@ -59,6 +54,20 @@ class BootVMConcurrent
         delete_vm_and_key()
       end
     end
+  end
+
+  def log_error(e)
+    @logger.info "**************************************\n****** EXCEPTION.message ******\n"
+    @logger.info e.message
+    @logger.info "**************************************\n****** STDERR-BEGIN ******\n"
+    @logger.info "The last '#{@vars.stderr_lines_int}' lines from stderr...\n"
+    message_string_array = e.message.split(/[\n]/).to_a
+    show_x_lines_at_end = @vars.stderr_lines_int.to_i * -1
+    trimmed_error_output = message_string_array[show_x_lines_at_end..-1].join("\n")
+    @logger.info trimmed_error_output
+    @logger.info "\n****** STDERR-END ******\n**************************************\n"
+
+    #@build.native.setResult(Java.hudson.model.Result::FAILURE)
   end
 
   def test_concurrency(build, listener)
