@@ -1,7 +1,7 @@
 Jenkins::Plugin::Specification.new do |plugin|
   plugin.name = "boot-hpcloud-vm"
   plugin.display_name = "Boot HP Cloud VM Plugin"
-  plugin.version = '0.0.15'
+  plugin.version = '0.0.16'
   plugin.description = 'jenkins jruby plugin that boots an openstack vm ssh to node and run commands.'
 
   # You should create a wiki-page for your plugin when you publish it, see

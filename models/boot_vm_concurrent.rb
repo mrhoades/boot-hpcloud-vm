@@ -44,7 +44,7 @@ class BootVMConcurrent
     execute_ssh_commands_on_vm() unless @vars.checkbox_ssh_shell_script == 'false'
 
   rescue Timeout::Error => e
-    log_error(e)
+    @logger.info 'execution expired @ #<Net::SSH::Simple::Result cmd=/bin/bash exception=#<Timeout::Error: execution expired>'
   rescue Exception => e
     log_error(e)
   ensure
@@ -57,16 +57,20 @@ class BootVMConcurrent
   end
 
   def log_error(e)
-    @logger.info "**************************************\n****** EXCEPTION.message ******\n"
-    @logger.info e.message
     @logger.info "**************************************\n****** STDERR-BEGIN ******\n"
     @logger.info "The last '#{@vars.stderr_lines_int}' lines from stderr...\n"
-    message_string_array = e.message.split(/[\n]/).to_a
-    show_x_lines_at_end = @vars.stderr_lines_int.to_i * -1
-    trimmed_error_output = message_string_array[show_x_lines_at_end..-1].join("\n")
-    @logger.info trimmed_error_output
-    @logger.info "\n****** STDERR-END ******\n**************************************\n"
+    message_string_array = e.message.split('\n').to_a
 
+    if message_string_array.length < @vars.stderr_lines_int.to_i
+      @logger.info e.message
+    elsif message_string_array.length > 1
+      show_x_lines_at_end = @vars.stderr_lines_int.to_i
+      (1..show_x_lines_at_end).to_a.reverse.each do |i|
+        val_loc = (i*-1)
+        @logger.info message_string_array[val_loc]
+      end
+    end
+    @logger.info "\n****** STDERR-END ******\n**************************************\n"
     #@build.native.setResult(Java.hudson.model.Result::FAILURE)
   end
 
