@@ -35,6 +35,6 @@ Jenkins jruby plugin that boots an openstack vm, ssh to node and run commands. P
 === Build Plugin with 'Jenkins Ruby Plugin Tools'
 * `jpi build` 
 
-=== Getting Started Developing Ruby Plugins - test
+=== Getting Started Developing Ruby Plugins
 * https://github.com/jenkinsci/jenkins.rb/wiki/Getting-Started-With-Ruby-Plugins
 
