@@ -2,6 +2,7 @@ require 'openstack'
 require 'net/ssh/simple'
 require 'fileutils'
 
+
 class NovaFizz
 
   attr_accessor :os,
