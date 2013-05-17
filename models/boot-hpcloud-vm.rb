@@ -53,7 +53,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
     instance_variables.sort.each do |input|
       input_name = input.to_s[1..-1]
       input_value = eval(input.to_s)
-      eval_string = "vars.#{input_name} = \"#{input_value.to_s}\""
+      eval_string = "vars.#{input_name} = %Q[#{input_value.to_s}]"
       eval(eval_string)
     end
     vars

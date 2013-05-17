@@ -148,7 +148,7 @@ class BootVMConcurrent
   end
 
   def scp_custom_script_to_vm
-    script_file = create_file_in_memory(@vars.vm_user_data_script.to_s, @vars.vm_name, 'custom-script')
+    script_file = create_file_in_memory(remove_quotations(@vars.vm_user_data_script.to_s), @vars.vm_name, 'custom-script')
     @novafizz.scp_file(@vars.creds, script_file, script_file.name_remote)
     @novafizz.run_commands(@vars.creds,"sudo chmod +x #{script_file.name_remote}".split(','))
   end
@@ -318,6 +318,16 @@ class BootVMConcurrent
       @logger.debug string.to_s
       @logger.debug ' '
     end
+  end
+
+  def remove_quotations(str)
+    if str.start_with?('"')
+      str = str.slice(1..-1)
+    end
+    if str.end_with?('"')
+      str = str.slice(0..-2)
+    end
+    str
   end
 
 end
