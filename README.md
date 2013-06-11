@@ -13,9 +13,9 @@ Jenkins jruby plugin that boots an openstack vm, ssh to node and run commands. P
 * Now "Boot HP Cloud VM" will appear in job build steps dropdown
 
 
-# Development
+# Development Setup on Ubuntu 12.10
 
-=== Install ruby 2.x and jruby 1.7.3
+=== Install RVM with ruby 2.x and jruby 1.7.3
 * `curl -#L https://get.rvm.io | bash -s stable --autolibs=3 --ruby`
 * `source ~/.rvm/scripts/rvm`
 * `rvm install jruby`
