@@ -19,7 +19,7 @@ GEM
       hashie (>= 1.1.0)
       net-scp (~> 1.1.0)
       net-ssh (~> 2.6.3)
-    openstack (1.0.9)
+    openstack (1.1.1)
       json
     slop (3.0.4)
 
@@ -31,4 +31,4 @@ DEPENDENCIES
   jenkins-plugin-runtime (~> 0.2.3)
   jruby-openssl (>= 0.8.7)
   net-ssh-simple (~> 1.6.2)
-  openstack (~> 1.0.9)
+  openstack (~> 1.1.1)

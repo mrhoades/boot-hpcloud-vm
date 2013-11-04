@@ -60,6 +60,15 @@
                  :description => 'Openstack security group (my custom group)' do
            f.textbox :clazz => 'required', :default => 'default'
          end
+         f.optionalBlock :title => 'Attach Floating IP',
+                         :field => 'checkbox_attach_floating_ip',
+                         :inline => true do
+           f.entry :title => 'Use existing floating IP',
+                   :field => 'vm_floating_ip',
+                   :description => 'If left empty, IP will be created. You must have quota available.' do
+             f.textbox :default => ''
+           end
+         end
 
          f.optionalBlock :title => 'Upload custom-script to VM',
                          :field => 'checkbox_user_data',
@@ -85,10 +94,20 @@
                    :description => 'Provide the username that will ssh to VM' do
              f.textbox :clazz => 'required', :default => 'ubuntu'
            end
-           f.entry :title => 'SSH Idle Timeout Seconds',
+           f.entry :title => 'SSH Main Timeout Seconds',
                    :field => 'ssh_shell_timeout',
-                   :description => 'Useful for squelching ssh scripts that have hung.' do
+                   :description => 'Should always be higher than the job run time.' do
+             f.textbox :clazz => 'required', :default => '7200'
+           end
+           f.entry :title => 'SSH Operation Timeout Seconds',
+                   :field => 'ssh_shell_operation_timeout',
+                   :description => 'Not sure what this does yet... try it... maybe.' do
              f.textbox :clazz => 'required', :default => '3600'
+           end
+           f.entry :title => 'SSH Keep Alive Interval',
+                   :field => 'ssh_shell_keepalive_interval',
+                   :description => 'Keep ssh session open when idle.' do
+             f.textbox :clazz => 'required', :default => '300'
            end
            f.entry :title => 'SSH Connect Retries',
                    :field => 'ssh_connect_retry_int',

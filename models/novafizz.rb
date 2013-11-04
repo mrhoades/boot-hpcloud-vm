@@ -40,67 +40,44 @@ class NovaFizz
     false
   end
 
+  def floating_ip_get_list
+    @os.get_floating_ips
+  end
 
-  ## fog methods
-  #
-  #def fog_test_method()
-  #
-  #  #bugbugbug- chit no worky right now
-  #
-  #  #@fog = Fog::Compute.new(:provider => 'HP',
-  #  #                        :hp_access_key => '',
-  #  #                        :hp_secret_key => '',
-  #  #                        :hp_auth_uri => 'https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0/',
-  #  #                        :hp_tenant_id => '',
-  #  #                        :hp_avl_zone => 'az-1.region-a.geo-1',
-  #  #                        :connection_options => {
-  #  #                            :connect_timeout => 360,
-  #  #                            :read_timeout => 360,
-  #  #                            :write_timeout => 360,
-  #  #                            :ssl_verify_peer => false})
-  #  #
-  #  #
-  #  #servers = @fog.servers
-  #  #servers.size   # returns no. of servers
-  #  #               # display servers in a tabular format
-  #  #@fog.servers.table([:id, :name, :state, :created_at])
-  #  #@fog.addresses.table([:id, :ip, :fixed_ip, :instance_id])
-  #  #
-  #  #floatip_id = address_by_ip("15.185.164.224")
-  #
-  #end
-  #
-  #def assign_floating_ip(server_name,ip)
-  #
-  #  address = address_by_ip(ip)
-  #  server = server_by_name(server_name)
-  #  address.server = server
-  #  address.instance_id
-  #
-  #end
-  #
-  #def fog_server_by_name(name)
-  #  @fog.server.each do |s|
-  #    return s if s.name == name
-  #  end
-  #  raise "Could not find server with name: #{name}"
-  #end
-  #
-  #def address_by_ip(ip)
-  #  @fog.addresses.each do |f|
-  #    return f if f.ip == ip
-  #  end
-  #  raise "Could not find id of floating IP: #{ip}"
-  #end
-  #
-  #def address_by_instance_id(instance_id)
-  #  @fog.addresses.each do |f|
-  #    return f if f.instance_id == instance_id
-  #  end
-  #  raise "Could not find ID of floating IP using instance ID: #{instance_id}"
-  #end
-  ## end fog methods
+  def floating_ip_get_object(float_ip_address)
+    @os.get_floating_ips.select { |f| f.ip == float_ip_address }
+  end
 
+  def floating_ip_get_id(float_ip_address)
+    @os.get_floating_ips.each do |f|
+      if f.ip == float_ip_address
+        return f.id
+      end
+    end
+    nil
+  end
+
+  def floating_ip_delete(float_ip_string)
+
+  end
+
+  def floating_ip_create_and_attach(instance_id, pool={})
+    @logger.info "Create new floating ip..."
+    floating_ip_object = @os.create_floating_ip(pool)
+    @logger.info "Attach floating ip #{floating_ip_object.ip} to instance id #{instance_id}..."
+    @os.attach_floating_ip({:server_id => instance_id, :ip_id =>floating_ip_object.id})
+  end
+
+  def floating_ip_attach(server_name, float_ip_address)
+    @logger.info "Try attach floating ip #{float_ip_address} to server with name #{server_name}..."
+
+    server_id = server_id_from_name(server_name)
+    ip_id = floating_ip_get_id(float_ip_address)
+
+    @logger.info "Attach IP id #{ip_id} to server id #{server_id}..."
+
+    @os.attach_floating_ip({:server_id => server_id, :ip_id =>ip_id})
+  end
 
   def flavor_id(name)
     flavors = @os.flavors.select { |f| f[:name] == name }
@@ -181,6 +158,13 @@ class NovaFizz
     nil
   end
 
+  def server_id_from_name(name)
+    @os.servers.each do |s|
+      return s[:id] if s[:name] == name
+    end
+    nil
+  end
+
   def server_list()
     return @os.servers
   end
@@ -252,7 +236,13 @@ class NovaFizz
 
     raise "There is an issue with deleting the vm #{name} in a timely fashion."
   end
-
+  #
+  #opts[:timeout] ||= 60
+  #opts[:timeout] = 2**32 if opts[:timeout] == 0
+  #opts[:operation_timeout] ||= 3600
+  #opts[:operation_timeout] = 2**32 if opts[:operation_timeout] == 0
+  #opts[:close_timeout] ||= 5
+  #opts[:keepalive_interval] ||= 60
 
   def run_commands(creds, command_array)
     result = Net::SSH::Simple.sync do
@@ -260,6 +250,8 @@ class NovaFizz
           :user => creds[:user],
           :key_data => [creds[:key]],
           :timeout => creds[:ssh_shell_timeout],
+          :operation_timeout => creds[:ssh_shell_operation_timeout],
+          :keepalive_interval => creds[:ssh_shell_keepalive_interval],
           :global_known_hosts_file => ['/dev/null'],
           :user_known_hosts_file => ['/dev/null']) do |e,c,d|
         case e
@@ -280,7 +272,7 @@ class NovaFizz
               yield line.chomp if block_given?
             end
           when :exit_signal
-            @logger.debug 'exit_signal triggered'
+            @logger.info 'EXIT_SIGNAL TRIGGERED'
         end
       end
     end
@@ -375,6 +367,7 @@ class NovaFizz
 
     {
         :ip => public_ip(server),
+        :id => server.id,
         :user => opts[:ssh_shell_user],
         :key => private_key[:private_key]
     }

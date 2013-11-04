@@ -10,9 +10,12 @@ class BootVMConcurrent
                 :vm_image_name,
                 :vm_flavor_name,
                 :vm_security_groups,
+                :vm_floating_ip,
                 :vm_user_data_script,
                 :ssh_shell_commands,
                 :ssh_shell_timeout,
+                :ssh_shell_operation_timeout,
+                :ssh_shell_keepalive_interval,
                 :ssh_shell_user,
                 :ssh_connect_retry_int,
                 :ssh_fail_on_soft_error,
@@ -37,14 +40,12 @@ class BootVMConcurrent
 
     inject_env_vars()
 
-    #test_concurrency(build, listener)
-
     boot_vm()
     scp_custom_script_to_vm() unless @vars.checkbox_user_data == 'false'
     execute_ssh_commands_on_vm() unless @vars.checkbox_ssh_shell_script == 'false'
 
   rescue Timeout::Error => e
-    @logger.info 'execution expired @ #<Net::SSH::Simple::Result cmd=/bin/bash exception=#<Timeout::Error: execution expired>'
+    log_error(e)
   rescue Exception => e
     log_error(e)
   ensure
@@ -60,7 +61,6 @@ class BootVMConcurrent
     @logger.info "**************************************\n****** STDERR-BEGIN ******\n"
     @logger.info "The last '#{@vars.stderr_lines_int}' lines from stderr...\n"
     message_string_array = e.message.split('\n').to_a
-
     if message_string_array.length < @vars.stderr_lines_int.to_i
       @logger.info e.message
     elsif message_string_array.length > 1
@@ -74,6 +74,28 @@ class BootVMConcurrent
     #@build.native.setResult(Java.hudson.model.Result::FAILURE)
   end
 
+  def attach_floating_ip
+    connect_to_hpcloud
+    # bugbugbug - need to check of already attached
+    # bugbugbug - need to verify attach succeeded
+    # bugbugbug - need to verify ssh connectivity using floatip
+
+    if @vars.vm_floating_ip == ''
+      @novafizz.floating_ip_create_and_attach(@vars.creds[:id])
+    else
+      @novafizz.floating_ip_attach(@vars.vm_name,@vars.vm_floating_ip)
+    end
+
+  end
+
+  def test_floating_ips
+    connect_to_hpcloud
+    write_log @novafizz.floating_ip_get_list
+    write_log @novafizz.floating_ip_get_object('15.185.123.104')
+    write_log @novafizz.floating_ip_get_id('15.185.123.104')
+    @novafizz.floating_ip_attach('my-test-floatip','15.185.100.161')
+  end
+
   def test_concurrency(build, listener)
 
     @logger.info @env['BUILD_TAG']
@@ -84,7 +106,6 @@ class BootVMConcurrent
       sleep 1
     end
   end
-
 
   def connect_to_hpcloud
     if @novafizz == nil or @novafizz.is_openstack_connection_alive == false
@@ -118,10 +139,13 @@ class BootVMConcurrent
 
       write_log "Re-Using existing VM with name '#{@vars.vm_name}' ..."
 
+      # bugbugbug - fix all this creds bullshit... donna maka no sensa... try calling it server, instance, or vm
       @vars.creds = {:ip => @novafizz.server_by_name(@vars.vm_name).accessipv4,
                      :user => @vars.ssh_shell_user,
                      :key => @novafizz.get_key(@vars.vm_name, File.expand_path("~/.ssh/hpcloud-keys/" + @vars.os_region_name)),
-                     :ssh_shell_timeout => @vars.ssh_shell_timeout.to_i}
+                     :ssh_shell_timeout => @vars.ssh_shell_timeout.to_i,
+                     :ssh_shell_operation_timeout => @vars.ssh_shell_timeout.to_i,
+                     :ssh_shell_keepalive_interval => @vars.ssh_shell_timeout.to_i}
     else
       delete_vm_and_key()
 
@@ -136,13 +160,15 @@ class BootVMConcurrent
                                    :ssh_shell_user => [@vars.ssh_shell_user]
 
       write_log 'VM booted at IP Address: ' + @vars.creds[:ip]
-      write_debug @vars.creds[:key]
+      write_debug @vars.creds[:id]
+      write_debug @vars.creds[:user]
+      # write_debug @vars.creds[:key]
 
       @vars.creds[:ssh_shell_timeout] = @vars.ssh_shell_timeout.to_i
+      @vars.creds[:ssh_shell_operation_timeout] = @vars.ssh_shell_timeout.to_i
+      @vars.creds[:ssh_shell_keepalive_interval] = @vars.ssh_shell_timeout.to_i
 
-      #if vm_floating_ip != ''
-      #  @novafizz.assign_floating_ip(vm_name,vm_floating_ip)
-      #end
+      attach_floating_ip()
     end
     wait_for_ssh(@vars.creds)
   end
