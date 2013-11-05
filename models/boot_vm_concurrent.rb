@@ -6,6 +6,7 @@ class BootVMConcurrent
                 :os_tenant_name,
                 :os_auth_url,
                 :os_region_name,
+                :os_availability_zone,
                 :vm_name,
                 :vm_image_name,
                 :vm_flavor_name,
@@ -117,6 +118,7 @@ class BootVMConcurrent
                                  :authtenant => @vars.os_tenant_name,
                                  :auth_url => @vars.os_auth_url,
                                  :region => @vars.os_region_name,
+                                 :availability_zone => @vars.os_availability_zone,
                                  :service_type => 'compute')
       rescue Exception => e
         @logger.info "Connect to HP Cloud Compute failed ... wait 5 seconds and retry."
@@ -156,10 +158,13 @@ class BootVMConcurrent
                                    :image => /#{@vars.vm_image_name}/,
                                    :key_name => @vars.vm_name,
                                    :region => @vars.os_region_name,
+                                   :availability_zone => @vars.os_availability_zone,
                                    :sec_groups => [@vars.vm_security_groups],
                                    :ssh_shell_user => [@vars.ssh_shell_user]
 
-      write_log 'VM booted at IP Address: ' + @vars.creds[:ip]
+      write_log 'VM booted with Public Address: ' + @vars.creds[:ip_public]
+      write_log 'VM booted with NAT Address: ' + @vars.creds[:ip_local_nat]
+
       write_debug @vars.creds[:id]
       write_debug @vars.creds[:user]
       # write_debug @vars.creds[:key]

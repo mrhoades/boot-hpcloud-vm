@@ -19,15 +19,33 @@ class NovaFizz
     @logger.info "TENANT_NAME: #{opts[:authtenant]}"
     @logger.info "AUTH_URL: #{opts[:auth_url]}"
     @logger.info "REGION: #{opts[:region]}"
+    @logger.info "ZONE: #{opts[:availability_zone]}"
     @logger.info "SERVICE_TYPE:#{opts[:service_type]}"
 
-    @os = OpenStack::Connection.create(:username => opts[:username],
-                                        :api_key => opts[:password],
-                                        :authtenant => opts[:authtenant],
-                                        :auth_url => opts[:auth_url],
-                                        :region => opts[:region],
-                                        :service_type => opts[:service_type])
+    begin
 
+      @logger.info 'Try connect using 1.0 style region like az-1.region-a.geo-1...'
+
+      @os = OpenStack::Connection.create(:username => opts[:username],
+                                         :api_key => opts[:password],
+                                         :authtenant => opts[:authtenant],
+                                         :auth_url => opts[:auth_url],
+                                         :region => opts[:availability_zone] + '.' + opts[:region],
+                                         :service_type => opts[:service_type])
+
+    rescue Exception => e
+
+      @logger.info e.message
+
+      @logger.info 'Try connect using 1.1 style region like region-a.geo-1...'
+
+      @os = OpenStack::Connection.create(:username => opts[:username],
+                                         :api_key => opts[:password],
+                                         :authtenant => opts[:authtenant],
+                                         :auth_url => opts[:auth_url],
+                                         :region => opts[:region],
+                                         :service_type => opts[:service_type])
+    end
   end
 
   def is_openstack_connection_alive
@@ -139,7 +157,15 @@ class NovaFizz
     end
   end
 
-  def public_ip(server)
+  def ip_public(server)
+    server.accessipv4
+  end
+
+  def ip_floating(server)
+    write_debug server.addresses
+  end
+
+  def ip_local_nat(server)
     server.accessipv4
   end
 
@@ -341,7 +367,8 @@ class NovaFizz
     opts[:image]  ||= /Ubuntu Precise/
     opts[:sec_groups] ||= ['default']
     opts[:key_name] ||= 'default'
-    opts[:region] ||= 'az-2.region-a.geo-1'
+    opts[:region] ||= 'region-a.geo-1'
+    opts[:availability_zone] ||= 'az-1'
     opts[:personality] ||= {}
     opts[:ssh_shell_user] ||= 'ubuntu'
 
@@ -364,9 +391,11 @@ class NovaFizz
       raise 'error booting vm' if server.status == 'ERROR'
       server.status == 'ACTIVE'
     end
-
     {
-        :ip => public_ip(server),
+
+        :ip_floating => ip_floating(server),
+        :ip_public => ip_public(server),
+        :ip_local_nat => ip_local_nat(server),
         :id => server.id,
         :user => opts[:ssh_shell_user],
         :key => private_key[:private_key]

@@ -4,6 +4,7 @@ class BootVMPluginVars
                 :os_tenant_name,
                 :os_auth_url,
                 :os_region_name,
+                :os_availability_zone,
                 :vm_name,
                 :vm_image_name,
                 :vm_flavor_name,

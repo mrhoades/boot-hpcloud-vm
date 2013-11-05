@@ -41,10 +41,14 @@
          end
          f.entry :title => 'Region Name',
                  :field => 'os_region_name',
-                 :description => 'Zone where vm will be created (az-1.region-a.geo-1,az-2.region-a.geo-1, etc)' do
-           f.textbox :clazz => 'required', :default => 'az-1.region-a.geo-1'
+                 :description => 'Region where vm will be created (region-a.geo-1,region-b.geo-1)' do
+           f.textbox :clazz => 'required', :default => 'region-a.geo-1'
          end
-
+         f.entry :title => 'Zone',
+                 :field => 'os_availability_zone',
+                 :description => 'Zone where vm will be created (az-1,az-2,az-3,az1,az2,az3)' do
+           f.textbox :clazz => 'required', :default => 'az-1'
+         end
          f.entry :title => 'Image Name',
                  :field => 'vm_image_name',
                  :description => 'Operating system image that will be deployed. Partial strings allowed. First image matched is used.' do
