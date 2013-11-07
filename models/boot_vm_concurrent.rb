@@ -25,6 +25,7 @@ class BootVMConcurrent
                 :checkbox_user_data,
                 :checkbox_ssh_shell_script,
                 :checkbox_custom_retry,
+                :checkbox_attach_floating_ip,
                 :retry_connect_hpcloud_int,
                 :retry_create_vm_int,
                 :retry_delete_vm_int,
@@ -81,7 +82,7 @@ class BootVMConcurrent
     # bugbugbug - need to verify attach succeeded
     # bugbugbug - need to verify ssh connectivity using floatip
 
-    if @vars.vm_floating_ip == ''
+    if @vars.vm_floating_ip == '' and @vars.checkbox_attach_floating_ip == 'true'
       @novafizz.floating_ip_create_and_attach(@vars.creds[:id])
     else
       @novafizz.floating_ip_attach(@vars.vm_name,@vars.vm_floating_ip)
