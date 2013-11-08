@@ -84,6 +84,8 @@ class NovaFizz
     floating_ip_object = @os.create_floating_ip(pool)
     @logger.info "Attach floating ip #{floating_ip_object.ip} to instance id #{instance_id}..."
     @os.attach_floating_ip({:server_id => instance_id, :ip_id =>floating_ip_object.id})
+
+    return floating_ip_object.ip
   end
 
   def floating_ip_attach(server_name, float_ip_address)
@@ -158,15 +160,30 @@ class NovaFizz
   end
 
   def ip_public(server)
-    server.accessipv4
+    server.addresses.each do |s|
+      if s.label == 'public'
+        return s.address
+      end
+    end
+    nil
   end
 
   def ip_floating(server)
-    write_debug server.addresses
+    server.addresses.each do |s|
+      if s.label == 'public'
+        return s.address
+      end
+    end
+    nil
   end
 
   def ip_local_nat(server)
-    server.accessipv4
+    server.addresses.each do |s|
+      if s.label == 'private'
+        return s.address
+      end
+    end
+    nil
   end
 
   def wait(timeout, interval=10)
@@ -272,7 +289,7 @@ class NovaFizz
 
   def run_commands(creds, command_array)
     result = Net::SSH::Simple.sync do
-      ssh(creds[:ip], '/bin/bash',
+      ssh(creds[:ip_floating], '/bin/bash',
           :user => creds[:user],
           :key_data => [creds[:key]],
           :timeout => creds[:ssh_shell_timeout],
@@ -324,14 +341,16 @@ class NovaFizz
 
   def scp_file(creds, local_file_path, remote_file_path)
 
-    write_debug "SCP file #{local_file_path} to server and put at #{remote_file_path}"
+    write_debug "SCP file #{local_file_path} to server IP #{creds[:ip_floating]} and put at #{remote_file_path}"
 
     begin
       Net::SSH::Simple.sync do
-        r = ssh(creds[:ip], 'echo "Hello World"',
+        r = ssh(creds[:ip_floating], 'echo "Hello World"',
                 :user => creds[:user],
                 :key_data => [creds[:key]],
                 :timeout => creds[:ssh_shell_timeout],
+                :operation_timeout => creds[:ssh_shell_operation_timeout],
+                :keepalive_interval => creds[:ssh_shell_keepalive_interval],
                 :global_known_hosts_file => ['/dev/null'],
                 :user_known_hosts_file => ['/dev/null'])
         if r.success and r.stdout == 'Hello World'
@@ -392,8 +411,7 @@ class NovaFizz
       server.status == 'ACTIVE'
     end
     {
-
-        :ip_floating => ip_floating(server),
+        :ip_floating => ip_public(server),
         :ip_public => ip_public(server),
         :ip_local_nat => ip_local_nat(server),
         :id => server.id,

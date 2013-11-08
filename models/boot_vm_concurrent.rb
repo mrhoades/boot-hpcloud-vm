@@ -82,8 +82,12 @@ class BootVMConcurrent
     # bugbugbug - need to verify attach succeeded
     # bugbugbug - need to verify ssh connectivity using floatip
 
-    if @vars.vm_floating_ip == '' and @vars.checkbox_attach_floating_ip == 'true'
-      @novafizz.floating_ip_create_and_attach(@vars.creds[:id])
+    if @vars.vm_floating_ip == '' and @vars.checkbox_attach_floating_ip ==
+      @vars.vm_floating_ip = @novafizz.floating_ip_create_and_attach(@vars.creds[:id])
+
+
+      @novafizz.ip_floating(server)
+
     else
       @novafizz.floating_ip_attach(@vars.vm_name,@vars.vm_floating_ip)
     end
@@ -180,9 +184,26 @@ class BootVMConcurrent
   end
 
   def scp_custom_script_to_vm
-    script_file = create_file_in_memory(remove_quotations(@vars.vm_user_data_script.to_s), @vars.vm_name, 'custom-script')
-    @novafizz.scp_file(@vars.creds, script_file, script_file.name_remote)
-    @novafizz.run_commands(@vars.creds,"sudo chmod +x #{script_file.name_remote}".split(','))
+
+    counter=0
+
+    begin
+      script_file = create_file_in_memory(remove_quotations(@vars.vm_user_data_script.to_s), @vars.vm_name, 'custom-script')
+      @novafizz.scp_file(@vars.creds, script_file, script_file.name_remote)
+      @novafizz.run_commands(@vars.creds,"sudo chmod +x #{script_file.name_remote}".split(','))
+
+    rescue Exception => e
+      @logger.info "SCP file to  #{@vars.creds[:ip_floating]} failed... wait 5 seconds and retry."
+      @logger.info e.message
+      sleep(5)
+      counter += 1
+
+      retry unless  counter >= 5
+      raise "SCP file to  #{@vars.creds[:ip_floating]} failed!"
+    end
+
+
+
   end
 
   def execute_ssh_commands_on_vm
@@ -248,7 +269,7 @@ class BootVMConcurrent
   end
 
   def wait_for_ssh(creds)
-    write_log "Make sure SSH to #{creds[:ip]} is working. SSH into the VM and echo the hostname."
+    write_log "Make sure SSH to #{creds[:ip_public]} or #{creds[:ip_floating]} is working. SSH into the VM and echo the hostname."
     ssh_retry_interval_seconds = 5
     ssh_retry_count = 1
 
