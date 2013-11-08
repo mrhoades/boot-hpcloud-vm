@@ -327,22 +327,17 @@ class NovaFizz
 
     begin
       Net::SSH::Simple.sync do
-        r = ssh(creds[:ip_floating],
-                'echo "Hello World"',
-                {
-                :host => creds[:ip_floating],
-                :user => creds[:user],
+        r = ssh(creds[:ip_floating],'echo "Hello World"',
+                :user => 'ubuntu',
                 :key_data => [creds[:key]],
                 :global_known_hosts_file => ['/dev/null'],
-                :user_known_hosts_file => ['/dev/null']
-                }
-        )
+                :user_known_hosts_file => ['/dev/null'])
 
         if r.success and r.stdout == 'Hello World'
           @logger.info "Success! I Hello World."
         end
 
-        r = scp_put(creds[:ip], local_file_path, remote_file_path) do |sent, total|
+        r = scp_put(creds[:ip_floating], local_file_path, remote_file_path) do |sent, total|
           @logger.info "Bytes uploaded: #{sent} of #{total}"
         end
         if r.success and r.sent == r.total
