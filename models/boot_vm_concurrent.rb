@@ -140,56 +140,88 @@ class BootVMConcurrent
 
   def boot_vm
 
-    connect_to_hpcloud()
+    begin
 
-    if @novafizz.server_exists(@vars.vm_name) == true && @vars.checkbox_delete_vm_at_start == 'false'
+      connect_to_hpcloud()
 
-      write_log "Re-Using existing VM with name '#{@vars.vm_name}' ..."
+      if @novafizz.server_exists(@vars.vm_name) == true && @vars.checkbox_delete_vm_at_start == 'false'
 
-      # bugbugbug - fix all this creds bullshit... donna maka no sensa... try calling it server, instance, or vm
-      @vars.creds = {:ip => @novafizz.server_by_name(@vars.vm_name).accessipv4,
-                     :user => @vars.ssh_shell_user,
-                     :key => @novafizz.get_key(@vars.vm_name, File.expand_path("~/.ssh/hpcloud-keys/" + @vars.os_region_name)),
-                     :ssh_shell_timeout => @vars.ssh_shell_timeout.to_i,
-                     :ssh_shell_operation_timeout => @vars.ssh_shell_timeout.to_i,
-                     :ssh_shell_keepalive_interval => @vars.ssh_shell_timeout.to_i}
-    else
-      delete_vm_and_key()
+        write_log "Re-Using existing VM with name '#{@vars.vm_name}' ..."
 
-      write_log "Booting a new VM..."
+        # bugbugbug - fix all this creds bullshit... donna maka no sensa... try calling it server, instance, or vm
+        @vars.creds = {:ip_floating => @novafizz.server_by_name(@vars.vm_name).accessipv4,
+                       :user => @vars.ssh_shell_user,
+                       :key => @novafizz.get_key(@vars.vm_name, File.expand_path("~/.ssh/hpcloud-keys/" + @vars.os_region_name)),
+                       :ssh_shell_timeout => @vars.ssh_shell_timeout.to_i,
+                       :ssh_shell_operation_timeout => @vars.ssh_shell_timeout.to_i,
+                       :ssh_shell_keepalive_interval => @vars.ssh_shell_timeout.to_i}
+      else
+        delete_vm_and_key()
 
-      @vars.creds = @novafizz.boot :name => @vars.vm_name,
-                                   :flavor => @vars.vm_flavor_name,
-                                   :image => /#{@vars.vm_image_name}/,
-                                   :key_name => @vars.vm_name,
-                                   :region => @vars.os_region_name,
-                                   :availability_zone => @vars.os_availability_zone,
-                                   :sec_groups => [@vars.vm_security_groups],
-                                   :ssh_shell_user => [@vars.ssh_shell_user]
+        write_log "Booting a new VM..."
 
-      write_log 'VM booted with Public Address: ' + @vars.creds[:ip_public]
-      write_log 'VM booted with NAT Address: ' + @vars.creds[:ip_local_nat]
+        @vars.creds = @novafizz.boot :name => @vars.vm_name,
+                                     :flavor => @vars.vm_flavor_name,
+                                     :image => /#{@vars.vm_image_name}/,
+                                     :key_name => @vars.vm_name,
+                                     :region => @vars.os_region_name,
+                                     :availability_zone => @vars.os_availability_zone,
+                                     :sec_groups => [@vars.vm_security_groups],
+                                     :ssh_shell_user => @vars.ssh_shell_user,
+                                     :attach_ip => @vars.vm_floating_ip,
+                                     :checkbox_attach_floating_ip=> @vars.checkbox_attach_floating_ip
 
-      write_debug @vars.creds[:id]
-      write_debug @vars.creds[:user]
-      # write_debug @vars.creds[:key]
+        write_log 'VM booted with NAT IP Address: ' + @vars.creds[:ip_local_nat]
+        write_log 'VM booted with Public IP Address: ' + @vars.creds[:ip_public]
+        write_log 'VM booted with Floating IP Address: ' + @vars.creds[:ip_floating]
 
-      @vars.creds[:ssh_shell_timeout] = @vars.ssh_shell_timeout.to_i
-      @vars.creds[:ssh_shell_operation_timeout] = @vars.ssh_shell_timeout.to_i
-      @vars.creds[:ssh_shell_keepalive_interval] = @vars.ssh_shell_timeout.to_i
+        write_debug @vars.creds[:id]
+        write_debug @vars.creds[:user]
 
-      attach_floating_ip()
+        @vars.creds[:ssh_shell_timeout] = @vars.ssh_shell_timeout.to_i
+        @vars.creds[:ssh_shell_operation_timeout] = @vars.ssh_shell_timeout.to_i
+        @vars.creds[:ssh_shell_keepalive_interval] = @vars.ssh_shell_timeout.to_i
+
+      end
+      wait_for_ssh(@vars.creds)
+
+    rescue Exception => e
+      @logger.info "Error in boot vm... fuck..."
+      @logger.info e.message
+      @logger.info e.backtrace
+      raise e
     end
-    wait_for_ssh(@vars.creds)
+
+
+
+
+
+
   end
 
+
   def scp_custom_script_to_vm
+    script_file = create_file_in_memory(@vars.vm_user_data_script.to_s, @vars.vm_name, 'custom-script')
+    @novafizz.scp_file(@vars.creds, script_file, script_file.name_remote)
+    @novafizz.run_commands(@vars.creds,"sudo chmod +x #{script_file.name_remote}".split(','))
+  end
+
+  def scp_custom_script_to_vm_new
 
     counter=0
 
     begin
+
+      @logger.info "Try SCP file to  #{@vars.creds[:ip_floating]} "
+
       script_file = create_file_in_memory(remove_quotations(@vars.vm_user_data_script.to_s), @vars.vm_name, 'custom-script')
+
+
+
+
+
       @novafizz.scp_file(@vars.creds, script_file, script_file.name_remote)
+
       @novafizz.run_commands(@vars.creds,"sudo chmod +x #{script_file.name_remote}".split(','))
 
     rescue Exception => e
@@ -198,7 +230,7 @@ class BootVMConcurrent
       sleep(5)
       counter += 1
 
-      retry unless  counter >= 5
+      retry unless  counter >= 1
       raise "SCP file to  #{@vars.creds[:ip_floating]} failed!"
     end
 

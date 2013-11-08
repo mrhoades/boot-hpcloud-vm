@@ -16,7 +16,7 @@
          end
          f.entry :title => 'Delete VM at End',
                  :field => 'checkbox_delete_vm_at_end',
-                 :description => 'Delete the VM after the job has completed.' do
+                 :description => 'Delete the VM after the job has completed. Do you really want to pay for unused compute time? Send your data somewhere (wink).' do
            f.checkbox :clazz => 'required', :default => 'false'
          end
          f.entry :title => 'Cloud Account Username',

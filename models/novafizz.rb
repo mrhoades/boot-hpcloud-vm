@@ -58,46 +58,6 @@ class NovaFizz
     false
   end
 
-  def floating_ip_get_list
-    @os.get_floating_ips
-  end
-
-  def floating_ip_get_object(float_ip_address)
-    @os.get_floating_ips.select { |f| f.ip == float_ip_address }
-  end
-
-  def floating_ip_get_id(float_ip_address)
-    @os.get_floating_ips.each do |f|
-      if f.ip == float_ip_address
-        return f.id
-      end
-    end
-    nil
-  end
-
-  def floating_ip_delete(float_ip_string)
-
-  end
-
-  def floating_ip_create_and_attach(instance_id, pool={})
-    @logger.info "Create new floating ip..."
-    floating_ip_object = @os.create_floating_ip(pool)
-    @logger.info "Attach floating ip #{floating_ip_object.ip} to instance id #{instance_id}..."
-    @os.attach_floating_ip({:server_id => instance_id, :ip_id =>floating_ip_object.id})
-
-    return floating_ip_object.ip
-  end
-
-  def floating_ip_attach(server_name, float_ip_address)
-    @logger.info "Try attach floating ip #{float_ip_address} to server with name #{server_name}..."
-
-    server_id = server_id_from_name(server_name)
-    ip_id = floating_ip_get_id(float_ip_address)
-
-    @logger.info "Attach IP id #{ip_id} to server id #{server_id}..."
-
-    @os.attach_floating_ip({:server_id => server_id, :ip_id =>ip_id})
-  end
 
   def flavor_id(name)
     flavors = @os.flavors.select { |f| f[:name] == name }
@@ -159,31 +119,47 @@ class NovaFizz
     end
   end
 
+
+  def print_addresses(server)
+    server.addresses.each do |s|
+      @logger.info s
+    end
+  end
+
   def ip_public(server)
     server.addresses.each do |s|
+
+      @logger.info s
+
       if s.label == 'public'
         return s.address
       end
     end
-    nil
+    'address_not_set'
   end
 
   def ip_floating(server)
     server.addresses.each do |s|
+
+      @logger.info s
+
       if s.label == 'public'
         return s.address
       end
     end
-    nil
+    'address_not_set'
   end
 
   def ip_local_nat(server)
     server.addresses.each do |s|
+
+      @logger.info s
+
       if s.label == 'private'
         return s.address
       end
     end
-    nil
+    'address_not_set'
   end
 
   def wait(timeout, interval=10)
@@ -339,20 +315,29 @@ class NovaFizz
     @logger.debug ' '
   end
 
+  def write_log(string)
+    @logger.info ' '
+    @logger.info string
+    @logger.info ' '
+  end
+
   def scp_file(creds, local_file_path, remote_file_path)
 
     write_debug "SCP file #{local_file_path} to server IP #{creds[:ip_floating]} and put at #{remote_file_path}"
 
     begin
       Net::SSH::Simple.sync do
-        r = ssh(creds[:ip_floating], 'echo "Hello World"',
+        r = ssh(creds[:ip_floating],
+                'echo "Hello World"',
+                {
+                :host => creds[:ip_floating],
                 :user => creds[:user],
                 :key_data => [creds[:key]],
-                :timeout => creds[:ssh_shell_timeout],
-                :operation_timeout => creds[:ssh_shell_operation_timeout],
-                :keepalive_interval => creds[:ssh_shell_keepalive_interval],
                 :global_known_hosts_file => ['/dev/null'],
-                :user_known_hosts_file => ['/dev/null'])
+                :user_known_hosts_file => ['/dev/null']
+                }
+        )
+
         if r.success and r.stdout == 'Hello World'
           @logger.info "Success! I Hello World."
         end
@@ -390,6 +375,7 @@ class NovaFizz
     opts[:availability_zone] ||= 'az-1'
     opts[:personality] ||= {}
     opts[:ssh_shell_user] ||= 'ubuntu'
+    opts[:attach_ip] ||= ''
 
     raise 'no name provided' if !opts[:name] or opts[:name].empty?
 
@@ -410,6 +396,30 @@ class NovaFizz
       raise 'error booting vm' if server.status == 'ERROR'
       server.status == 'ACTIVE'
     end
+
+
+    @logger.info "Try floating IP attach..."
+    @logger.info opts[:checkbox_attach_floating_ip]
+
+    if opts[:checkbox_attach_floating_ip] == 'true'
+
+      if opts[:attach_ip] != ''
+
+        @logger.info "Try floating IP attach..."
+
+        floating_ip_attach(opts[:name], opts[:attach_ip])
+      else
+        @logger.info "Try floating IP create attach..."
+
+        floating_ip_create_and_attach(opts[:name])
+      end
+    end
+
+    # scrape on final updated object
+    server = @os.server(server.id)
+
+    print_addresses(server)
+
     {
         :ip_floating => ip_public(server),
         :ip_public => ip_public(server),
@@ -419,5 +429,49 @@ class NovaFizz
         :key => private_key[:private_key]
     }
   end
+
+
+  def floating_ip_get_list
+    @os.get_floating_ips
+  end
+
+  def floating_ip_get_object(float_ip_address)
+    @os.get_floating_ips.select { |f| f.ip == float_ip_address }
+  end
+
+  def floating_ip_get_id(float_ip_address)
+    @os.get_floating_ips.each do |f|
+      if f.ip == float_ip_address
+        return f.id
+      end
+    end
+    raise "Failed in floating_ip_get_id - floating IP #{float_ip_address} not found"
+  end
+
+  def floating_ip_delete(float_ip_string)
+
+  end
+
+  def floating_ip_create_and_attach(server_name, pool={})
+    @logger.info "Create new floating ip..."
+    floating_ip_object = @os.create_floating_ip(pool)
+    server_id = server_id_from_name(server_name)
+    @logger.info "Attach floating ip #{floating_ip_object.ip} to instance id #{server_id}..."
+    @os.attach_floating_ip({:server_id => server_id, :ip_id =>floating_ip_object.id})
+
+    floating_ip_object.ip
+  end
+
+  def floating_ip_attach(server_name, float_ip_address)
+    @logger.info "Try attach floating ip #{float_ip_address} to server with name #{server_name}..."
+    server_id = server_id_from_name(server_name)
+    ip_id = floating_ip_get_id(float_ip_address)
+    @logger.info "Attach IP id #{ip_id} to server id #{server_id}..."
+    @os.attach_floating_ip({:server_id => server_id, :ip_id =>ip_id})
+  end
+
+
+
+
 
 end
