@@ -363,7 +363,7 @@ class BootVMConcurrent
           if key.to_s == match[1..-1]
             @logger.info "[Boot HP Cloud VM] - Inject var '#{match}' with value '#{value}' into boot VM plugin input #{attr_name[1..-1]}"
             updated_text = eval(plugin_input_name).gsub(match,value)
-            eval("#{plugin_input_name} = \"#{updated_text.to_s}\"")
+            eval("#{plugin_input_name} = %Q[#{updated_text.to_s}]")
           end
         end
       end
