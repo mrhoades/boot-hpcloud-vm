@@ -1,6 +1,5 @@
 
 class BootVMConcurrent
-
   attr_accessor :os_username,
                 :os_password,
                 :os_tenant_name,
@@ -18,6 +17,7 @@ class BootVMConcurrent
                 :ssh_shell_operation_timeout,
                 :ssh_shell_keepalive_interval,
                 :ssh_shell_user,
+                :ssh_authorized_public_key,
                 :ssh_connect_retry_int,
                 :ssh_fail_on_soft_error,
                 :checkbox_delete_vm_at_start,
@@ -37,14 +37,15 @@ class BootVMConcurrent
 
     @logger = listener
     @build = build
-    @env = build.native.getEnvironment()
+    @env = build.native.getEnvironment
     @vars = vars_in
 
-    inject_env_vars()
+    inject_env_vars
 
-    boot_vm()
-    scp_custom_script_to_vm() unless @vars.checkbox_user_data == 'false'
-    execute_ssh_commands_on_vm() unless @vars.checkbox_ssh_shell_script == 'false'
+    boot_vm
+    scp_custom_script_to_vm unless @vars.checkbox_user_data == 'false'
+    install_authorized_public_key unless @vars.ssh_authorized_public_key == ''
+    execute_ssh_commands_on_vm unless @vars.checkbox_ssh_shell_script == 'false'
 
   rescue Timeout::Error => e
     log_error(e)
@@ -186,19 +187,12 @@ class BootVMConcurrent
       wait_for_ssh(@vars.creds)
 
     rescue Exception => e
-      @logger.info "Error in boot vm... fuck..."
+      @logger.info "Error with boot VM attempt: "
       @logger.info e.message
       @logger.info e.backtrace
       raise e
     end
-
-
-
-
-
-
   end
-
 
   def scp_custom_script_to_vm
     script_file = create_file_in_memory(@vars.vm_user_data_script.to_s, @vars.vm_name, 'custom-script')
@@ -216,10 +210,6 @@ class BootVMConcurrent
 
       script_file = create_file_in_memory(remove_quotations(@vars.vm_user_data_script.to_s), @vars.vm_name, 'custom-script')
 
-
-
-
-
       @novafizz.scp_file(@vars.creds, script_file, script_file.name_remote)
 
       @novafizz.run_commands(@vars.creds,"sudo chmod +x #{script_file.name_remote}".split(','))
@@ -234,8 +224,27 @@ class BootVMConcurrent
       raise "SCP file to  #{@vars.creds[:ip_floating]} failed!"
     end
 
+  end
 
+  def install_authorized_public_key()
+    counter=0
+    begin
 
+      @logger.info ''
+      @logger.info 'Install public key to authorized_keys...'
+      @logger.info ''
+
+      @novafizz.run_commands(@vars.creds,"echo #{@vars.ssh_authorized_public_key} >> ~/.ssh/authorized_keys".split(','))
+
+    rescue Exception => e
+      @logger.info 'install pubkey to authorized_keys failed... try again....'
+      @logger.info e.message
+      sleep 5
+      counter += 1
+
+      retry unless  counter >= 1
+      raise 'Pubkey install failed!'
+    end
   end
 
   def execute_ssh_commands_on_vm

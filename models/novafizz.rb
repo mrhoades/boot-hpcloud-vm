@@ -274,27 +274,74 @@ class NovaFizz
           :global_known_hosts_file => ['/dev/null'],
           :user_known_hosts_file => ['/dev/null']) do |e,c,d|
         case e
+
+          # :start is triggered exactly once per connection
           when :start
             command_array.each do |cmd|
               c.send_data "#{cmd}\n"
             end
             c.eof!
+
+          # bugbugbug - this code hangs with long running trove proboscis tests
+          #when :stdout
+          #  # read the input line-wise (it *will* arrive fragmented!)
+          #  (@buf ||= '') << d
+          #  while line = @buf.slice!(/(.*)\r?\n/)
+          #    yield line.chomp if block_given?
+          #  end
+          #when :stderr
+          #  (@buf ||= '') << d
+          #  while line = @buf.slice!(/(.*)\r?\n/)
+          #    yield line.chomp if block_given?
+          #  end
+
+          # :stdout is triggered when there's stdout data from remote.
+          # by default the data is also appended to result[:stdout].
+          # you may return :no_append as seen below to avoid that.
           when :stdout
             # read the input line-wise (it *will* arrive fragmented!)
             (@buf ||= '') << d
             while line = @buf.slice!(/(.*)\r?\n/)
-              yield line.chomp if block_given?
+              @logger.info line
             end
+
+          # :stderr is triggered when there's stderr data from remote.
+          # by default the data is also appended to result[:stderr].
+          # you may return :no_append as seen below to avoid that.
           when :stderr
+            # read the input line-wise (it *will* arrive fragmented!)
             (@buf ||= '') << d
             while line = @buf.slice!(/(.*)\r?\n/)
-              yield line.chomp if block_given?
+              @logger.info line
             end
+
+          # :exit_code is triggered when the remote process exits normally.
+          # it does *not* trigger when the remote process exits by signal!
+          when :exit_code
+            @logger.info d
+
+          # :exit_signal is triggered when the remote is killed by signal.
+          # this would normally raise a Net::SSH::Simple::Error but
+          # we suppress that here by returning :no_raise
           when :exit_signal
-            @logger.info 'EXIT_SIGNAL TRIGGERED'
+            @logger.info d
+            :no_raise
+
+          # :finish triggers after :exit_code when the command exits normally.
+          # it does *not* trigger when the remote process exits by signal!
+          when :finish
+            @logger.info "***  finished ***"
         end
       end
     end
+
+
+    # Our Result has been populated normally, except for
+    # :stdout and :stdin (because we used :no_append).
+    @logger.info result           #=> Net::SSH::Simple::Result
+    @logger.info result.exit_code #=> 0
+    @logger.info result.stdout    #=> ''
+    @logger.info result.stderr    #=> ''
 
   #  if result.exit_code != 0
   #    raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"

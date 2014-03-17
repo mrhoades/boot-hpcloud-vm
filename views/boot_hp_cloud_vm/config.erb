@@ -98,6 +98,11 @@
                    :description => 'Provide the username that will ssh to VM' do
              f.textbox :clazz => 'required', :default => 'ubuntu'
            end
+           f.entry :title => 'Authorized Key',
+                   :field => 'ssh_authorized_public_key',
+                   :description => 'Install a public key to authorized_keys for defined user' do
+             f.textbox :default => ''
+           end
            f.entry :title => 'SSH Main Timeout Seconds',
                    :field => 'ssh_shell_timeout',
                    :description => 'Should always be higher than the job run time.' do

@@ -18,6 +18,7 @@ class BootVMVars
                 :ssh_shell_operation_timeout,
                 :ssh_shell_keepalive_interval,
                 :ssh_shell_user,
+                :ssh_authorized_public_key,
                 :ssh_connect_retry_int,
                 :ssh_fail_on_soft_error,
                 :checkbox_delete_vm_at_start,
