@@ -273,6 +273,9 @@ class NovaFizz
           :keepalive_interval => creds[:ssh_shell_keepalive_interval],
           :global_known_hosts_file => ['/dev/null'],
           :user_known_hosts_file => ['/dev/null']) do |e,c,d|
+        # e = :start, :stdout, :stderr, :exit_code, :exit_signal or :finish
+        # c = our Net::SSH::Connection::Channel instance
+        # d = data for this event
         case e
 
           # :start is triggered exactly once per connection
@@ -302,7 +305,7 @@ class NovaFizz
             # read the input line-wise (it *will* arrive fragmented!)
             (@buf ||= '') << d
             while line = @buf.slice!(/(.*)\r?\n/)
-              @logger.info line
+              @logger.info line.chomp
             end
 
           # :stderr is triggered when there's stderr data from remote.
@@ -312,13 +315,14 @@ class NovaFizz
             # read the input line-wise (it *will* arrive fragmented!)
             (@buf ||= '') << d
             while line = @buf.slice!(/(.*)\r?\n/)
-              @logger.info line
+              @logger.info line.chomp
             end
 
           # :exit_code is triggered when the remote process exits normally.
           # it does *not* trigger when the remote process exits by signal!
           when :exit_code
             @logger.info d
+            puts d
 
           # :exit_signal is triggered when the remote is killed by signal.
           # this would normally raise a Net::SSH::Simple::Error but
@@ -330,18 +334,21 @@ class NovaFizz
           # :finish triggers after :exit_code when the command exits normally.
           # it does *not* trigger when the remote process exits by signal!
           when :finish
-            @logger.info "***  finished ***"
+            puts '** FINISHED ***'
+            #@logger.info '***  FINISHED ***'
         end
       end
     end
 
-
     # Our Result has been populated normally, except for
     # :stdout and :stdin (because we used :no_append).
-    @logger.info result           #=> Net::SSH::Simple::Result
-    @logger.info result.exit_code #=> 0
-    @logger.info result.stdout    #=> ''
-    @logger.info result.stderr    #=> ''
+    #bugbugbug - need to filter this as key appears listed
+    #@logger.info e.result   # Net::SSH::Simple::Result
+    @logger.debug 'RESULT EXIT CODE: ' + result.exit_code.to_s #=> 0
+    @logger.debug 'RESULT STDOUT: ' + result.stdout.to_s    #=> ''
+    @logger.debug 'RESULT STDERR: ' + result.stderr.to_s    #=> ''
+
+
 
   #  if result.exit_code != 0
   #    raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"
