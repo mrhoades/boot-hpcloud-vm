@@ -344,11 +344,15 @@ class NovaFizz
     # :stdout and :stdin (because we used :no_append).
     #bugbugbug - need to filter this as key appears listed
     #@logger.info e.result   # Net::SSH::Simple::Result
-    @logger.debug 'RESULT EXIT CODE: ' + result.exit_code.to_s #=> 0
-    @logger.debug 'RESULT STDOUT: ' + result.stdout.to_s    #=> ''
-    @logger.debug 'RESULT STDERR: ' + result.stderr.to_s    #=> ''
 
-
+    if result.exit_code != 0
+      @logger.debug 'RESULT EXIT CODE: ' + result.exit_code.to_s #=> 0
+      @logger.debug 'RESULT STDOUT: ' + result.stdout.to_s    #=> ''
+      @logger.debug 'RESULT STDERR: ' + result.stderr.to_s    #=> ''
+      raise "Script failed!!! "
+    else
+      result.exit_code
+    end
 
   #  if result.exit_code != 0
   #    raise "command #{result.cmd} failed on #{creds[:ip]}:\n#{result.stderr}"

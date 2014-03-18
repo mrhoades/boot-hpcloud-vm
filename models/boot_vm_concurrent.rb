@@ -262,8 +262,9 @@ class BootVMConcurrent
     print_with_command_numbers(@vars.ssh_shell_commands)
     write_log '****** BEGIN RUN COMMANDS ******'
     cmds = build_commmands_array(@vars.ssh_shell_commands)
-    @novafizz.run_commands(@vars.creds, cmds)
+    result = @novafizz.run_commands(@vars.creds, cmds)
 
+    write_debug(result)
     #@novafizz.run_commands(@vars.creds, cmds) do |output|
     #  @logger.info output
     #end
