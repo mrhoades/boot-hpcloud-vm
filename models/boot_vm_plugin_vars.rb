@@ -12,6 +12,7 @@ class BootVMPluginVars
                 :vm_floating_ip,
                 :vm_user_data_script,
                 :ssh_shell_commands,
+                :ssh_shell_commands2,
                 :ssh_shell_timeout,
                 :ssh_shell_operation_timeout,
                 :ssh_shell_keepalive_interval,

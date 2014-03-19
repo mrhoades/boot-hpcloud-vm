@@ -13,6 +13,7 @@ class BootVMConcurrent
                 :vm_floating_ip,
                 :vm_user_data_script,
                 :ssh_shell_commands,
+                :ssh_shell_commands2,
                 :ssh_shell_timeout,
                 :ssh_shell_operation_timeout,
                 :ssh_shell_keepalive_interval,
@@ -45,7 +46,8 @@ class BootVMConcurrent
     boot_vm
     scp_custom_script_to_vm unless @vars.checkbox_user_data == 'false'
     install_authorized_public_key unless @vars.ssh_authorized_public_key == ''
-    execute_ssh_commands_thread unless @vars.checkbox_ssh_shell_script == 'false'
+    execute_ssh_commands_thread(@vars.ssh_shell_commands) unless @vars.checkbox_ssh_shell_script == 'false'
+    execute_ssh_commands_thread(@vars.ssh_shell_commands2) unless @vars.checkbox_ssh_shell_script == 'false'
 
   rescue Timeout::Error => e
     log_error(e)
@@ -247,28 +249,31 @@ class BootVMConcurrent
     end
   end
 
-  def execute_ssh_commands_thread
+  def execute_ssh_commands_thread(ssh_shell_commands)
     ssh_thread = Thread.new{
       Timeout::timeout(@vars.ssh_shell_timeout.to_i) {
-        execute_ssh_commands_on_vm
+        result = execute_ssh_commands_on_vm(ssh_shell_commands)
       }
     }
     ssh_thread.join
   end
 
-  def execute_ssh_commands_on_vm
+  def execute_ssh_commands_on_vm(ssh_shell_commands)
     write_log '****** COMMAND SUMMARY ******'
     write_log "ssh #{@vars.ssh_shell_user}@#{@vars.creds[:ip]} and run commands line-by-line:"
-    print_with_command_numbers(@vars.ssh_shell_commands)
+    print_with_command_numbers(ssh_shell_commands)
     write_log '****** BEGIN RUN COMMANDS ******'
-    cmds = build_commmands_array(@vars.ssh_shell_commands)
+    cmds = build_commmands_array(ssh_shell_commands)
     result = @novafizz.run_commands(@vars.creds, cmds)
 
+
+    write_debug('SSH_COMMANDS_RESULT:')
     write_debug(result)
+
     #@novafizz.run_commands(@vars.creds, cmds) do |output|
     #  @logger.info output
     #end
-
+    result
   end
 
   def print_with_command_numbers(commands_string)
@@ -290,11 +295,12 @@ class BootVMConcurrent
     commands = commands_string.split(/[\n]/)
 
     command_array = Array.new()
+
     # bugbugbug - this chit might be a bad... może tak być może nr
-    command_array.push('export DEBIAN_FRONTEND=noninteractive')
-    command_array.push(' sudo echo \'ClientAliveInterval 250\'  >> sudo /etc/ssh/sshd_config')
-    command_array.push('sudo echo \'ClientAliveCountMax 5\'  >> sudo /etc/ssh/sshd_config')
-    command_array.push('sudo service ssh restart')
+    command_array.push("export DEBIAN_FRONTEND=noninteractive")
+    command_array.push("sudo echo 'ClientAliveInterval 250'  >> sudo /etc/ssh/sshd_config")
+    command_array.push("sudo echo 'ClientAliveCountMax 5'  >> sudo /etc/ssh/sshd_config")
+    command_array.push("sudo service ssh restart")
 
     commands.each_with_index do |cmd,index|
 
@@ -305,13 +311,19 @@ class BootVMConcurrent
       command_array.push(formatted_cmd)
     end
 
+    command_array.push(" echo ' ' && echo 'send exit...' && exit && exit && exit\n")
+    command_array.push("sudo service ssh restart\n")
+
     command_array
   end
 
+
+
   def delete_vm_and_key
-    connect_to_hpcloud()
+    counter = 0
     begin
       if(@novafizz.server_exists(@vars.vm_name) == true)
+        connect_to_hpcloud()
         write_log "Delete cloud VM and key with name '#{@vars.vm_name}'..."
         @novafizz.delete_vm_and_key(@vars.vm_name)
         @novafizz.wait_for_vm_delete(@vars.vm_name)

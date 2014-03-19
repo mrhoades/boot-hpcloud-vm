@@ -93,6 +93,11 @@
                    :description => '' do
              f.textarea :clazz => 'required', :default => 'hostname'
            end
+           f.entry :title => 'Commands2',
+                   :field => 'ssh_shell_commands2',
+                   :description => '' do
+             f.textarea :default => '# sometimes you need a clean ssh session'
+           end
            f.entry :title => 'SSH User',
                    :field => 'ssh_shell_user',
                    :description => 'Provide the username that will ssh to VM' do

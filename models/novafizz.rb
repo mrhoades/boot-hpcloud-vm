@@ -334,8 +334,7 @@ class NovaFizz
           # :finish triggers after :exit_code when the command exits normally.
           # it does *not* trigger when the remote process exits by signal!
           when :finish
-            puts '** FINISHED ***'
-            #@logger.info '***  FINISHED ***'
+            @logger.info '** FINISHED ***'
         end
       end
     end
