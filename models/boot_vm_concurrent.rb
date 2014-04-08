@@ -13,8 +13,11 @@ class BootVMConcurrent
                 :vm_floating_ip,
                 :vm_user_data_script,
                 :ssh_shell_commands,
+                :ssh_shell_commands1,
                 :ssh_shell_commands2,
                 :ssh_shell_timeout,
+                :ssh_shell_timeout1,
+                :ssh_shell_timeout2,
                 :ssh_shell_operation_timeout,
                 :ssh_shell_keepalive_interval,
                 :ssh_shell_user,
@@ -46,8 +49,9 @@ class BootVMConcurrent
     boot_vm
     scp_custom_script_to_vm unless @vars.checkbox_user_data == 'false'
     install_authorized_public_key unless @vars.ssh_authorized_public_key == ''
-    execute_ssh_commands_thread(@vars.ssh_shell_commands) unless @vars.checkbox_ssh_shell_script == 'false'
-    execute_ssh_commands_thread(@vars.ssh_shell_commands2) unless @vars.checkbox_ssh_shell_script == 'false'
+    execute_ssh_commands_thread(@vars.ssh_shell_commands, @vars.ssh_shell_timeout.to_i) unless @vars.checkbox_ssh_shell_script == 'false'
+    execute_ssh_commands_thread(@vars.ssh_shell_commands1, @vars.ssh_shell_timeout1.to_i) unless @vars.checkbox_ssh_shell_script == 'false'
+    execute_ssh_commands_thread(@vars.ssh_shell_commands2, @vars.ssh_shell_timeout2.to_i) unless @vars.checkbox_ssh_shell_script == 'false'
 
   rescue Timeout::Error => e
     log_error(e)
@@ -249,13 +253,19 @@ class BootVMConcurrent
     end
   end
 
-  def execute_ssh_commands_thread(ssh_shell_commands)
-    ssh_thread = Thread.new{
-      Timeout::timeout(@vars.ssh_shell_timeout.to_i) {
-        result = execute_ssh_commands_on_vm(ssh_shell_commands)
+  def execute_ssh_commands_thread(ssh_shell_commands, int_timeout_seconds)
+    begin
+      ssh_thread = Thread.new{
+        Timeout::timeout(int_timeout_seconds) {
+          result = execute_ssh_commands_on_vm(ssh_shell_commands)
+        }
       }
-    }
-    ssh_thread.join
+      ssh_thread.join
+    rescue Exception => e
+      @logger.info "Timeout occured blah blah. Does anyone care... not really."
+      # bugbugbug - this should be optional, user might want to end script
+      #raise "timeout occurred fail hard"
+    end
   end
 
   def execute_ssh_commands_on_vm(ssh_shell_commands)
@@ -266,14 +276,8 @@ class BootVMConcurrent
     cmds = build_commmands_array(ssh_shell_commands)
     result = @novafizz.run_commands(@vars.creds, cmds)
 
-
     write_debug('SSH_COMMANDS_RESULT:')
     write_debug(result)
-
-    #@novafizz.run_commands(@vars.creds, cmds) do |output|
-    #  @logger.info output
-    #end
-    result
   end
 
   def print_with_command_numbers(commands_string)
@@ -309,6 +313,13 @@ class BootVMConcurrent
       formatted_cmd << " #{cmd}\n"
 
       command_array.push(formatted_cmd)
+
+      #formatted_cmd = "echo ' ' && echo \"RUN_COMMAND_#{index}: #{cmd}\" && "
+      #formatted_cmd << "echo ' ' && "
+      #formatted_cmd << "screen -dRR "
+      #formatted_cmd << "#{cmd} && "
+      #formatted_cmd << "echo \"COMPLETED_COMMAND_#{index}:\" && echo 'detach'"
+
     end
 
     command_array.push(" echo ' ' && echo 'send exit...' && exit && exit && exit\n")

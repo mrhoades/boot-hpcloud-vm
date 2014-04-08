@@ -88,15 +88,20 @@
                          :field => 'checkbox_ssh_shell_script',
                          :inline => true do
 
-           f.entry :title => 'Commands',
+           f.entry :title => 'Setup',
                    :field => 'ssh_shell_commands',
-                   :description => '' do
-             f.textarea :clazz => 'required', :default => 'hostname'
+                   :description => 'Scripts and commands to get environment prepared for text execution' do
+             f.textarea :default => ''
            end
-           f.entry :title => 'Commands2',
+           f.entry :title => 'Run Commands',
+                   :field => 'ssh_shell_commands1',
+                   :description => 'Execution of tests and such' do
+             f.textarea :default => ''
+           end
+           f.entry :title => 'Tear Down',
                    :field => 'ssh_shell_commands2',
-                   :description => '' do
-             f.textarea :default => '# sometimes you need a clean ssh session'
+                   :description => 'Scripts to cleanup any goobers that may occur if there were a failure with test execution' do
+             f.textarea :default => ''
            end
            f.entry :title => 'SSH User',
                    :field => 'ssh_shell_user',
@@ -108,9 +113,19 @@
                    :description => 'Install a public key to authorized_keys for defined user' do
              f.textbox :default => ''
            end
-           f.entry :title => 'SSH Main Timeout Seconds',
+           f.entry :title => 'Setup Timeout Seconds',
                    :field => 'ssh_shell_timeout',
-                   :description => 'Should always be higher than the job run time.' do
+                   :description => 'Timeout for setup phase' do
+             f.textbox :clazz => 'required', :default => '7200'
+           end
+           f.entry :title => 'SSH Main Timeout Seconds',
+                   :field => 'ssh_shell_timeout1',
+                   :description => 'Timeout for execution phase' do
+             f.textbox :clazz => 'required', :default => '7200'
+           end
+           f.entry :title => 'Tear Down Timeout Seconds',
+                   :field => 'ssh_shell_timeout2',
+                   :description => 'Timeout for cleanup phase' do
              f.textbox :clazz => 'required', :default => '7200'
            end
            f.entry :title => 'SSH Operation Timeout Seconds',

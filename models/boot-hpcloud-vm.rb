@@ -1,6 +1,8 @@
 require_relative 'novafizz'
 require_relative 'boot_vm_concurrent'
 require_relative 'boot_vm_vars'
+require_relative 'ssh'
+require_relative 'ssh-session'
 require 'net/ssh/simple'
 
 
@@ -26,8 +28,11 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :vm_floating_ip,
               :vm_user_data_script,
               :ssh_shell_commands,
+              :ssh_shell_commands1,
               :ssh_shell_commands2,
               :ssh_shell_timeout,
+              :ssh_shell_timeout1,
+              :ssh_shell_timeout2,
               :ssh_shell_operation_timeout,
               :ssh_shell_keepalive_interval,
               :ssh_shell_user,
@@ -51,9 +56,26 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
   end
 
   def perform(build, launcher, listener)
-    vars = BootVMVars.new()
-    fill_vars_object(vars)
-    BootVMConcurrent.new(build, listener, vars)
+
+    begin
+      vars = BootVMVars.new()
+      fill_vars_object(vars)
+
+      ssh_thread = Thread.new{
+        # bugbugbugbug - there should be a global timeout
+        Timeout::timeout(2400) {
+          BootVMConcurrent.new(build, listener, vars)
+        }
+      }
+      ssh_thread.join
+
+    rescue Exception => e
+      @logger.info "Error Caught in Main Perform: "
+      @logger.info e.message
+    end
+
+
+
   end
 
   def fill_vars_object(vars)

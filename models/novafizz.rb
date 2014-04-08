@@ -415,71 +415,76 @@ class NovaFizz
   # boot an instance and return creds
   def boot(opts)
 
-    opts.each do |key,value|
-      @logger.info "#{key} : #{value}"
-    end
-
-    opts[:flavor] ||= 'standard.xsmall'
-    opts[:image]  ||= /Ubuntu Precise/
-    opts[:sec_groups] ||= ['default']
-    opts[:key_name] ||= 'default'
-    opts[:region] ||= 'region-a.geo-1'
-    opts[:availability_zone] ||= 'az-1'
-    opts[:personality] ||= {}
-    opts[:ssh_shell_user] ||= 'ubuntu'
-    opts[:attach_ip] ||= ''
-
-    raise 'no name provided' if !opts[:name] or opts[:name].empty?
-
-    delete_vm_and_key opts[:name]
-    private_key = new_key opts[:name]
-    write_key(private_key, File.expand_path('~/.ssh/hpcloud-keys/' + opts[:region] + '/'))
-
-    server = @os.create_server(
-        :imageRef => image_id(opts[:image]),
-        :flavorRef => flavor_id(opts[:flavor]),
-        :key_name => private_key[:name],
-        :security_groups => opts[:sec_groups],
-        :name => opts[:name],
-        :personality => opts[:personality])
-
-    wait(300) do
-      server = @os.server(server.id)
-      raise 'error booting vm' if server.status == 'ERROR'
-      server.status == 'ACTIVE'
-    end
-
-
-    @logger.info "Try floating IP attach..."
-    @logger.info opts[:checkbox_attach_floating_ip]
-
-    if opts[:checkbox_attach_floating_ip] == 'true'
-
-      if opts[:attach_ip] != ''
-
-        @logger.info "Try floating IP attach..."
-
-        floating_ip_attach(opts[:name], opts[:attach_ip])
-      else
-        @logger.info "Try floating IP create attach..."
-
-        floating_ip_create_and_attach(opts[:name])
+    begin
+      opts.each do |key,value|
+        @logger.info "#{key} : #{value}"
       end
+
+      opts[:flavor] ||= 'standard.xsmall'
+      opts[:image]  ||= /Ubuntu Precise/
+      opts[:sec_groups] ||= ['default']
+      opts[:key_name] ||= 'default'
+      opts[:region] ||= 'region-a.geo-1'
+      opts[:availability_zone] ||= 'az-1'
+      opts[:personality] ||= {}
+      opts[:ssh_shell_user] ||= 'ubuntu'
+      opts[:attach_ip] ||= ''
+
+      raise 'no name provided' if !opts[:name] or opts[:name].empty?
+
+      delete_vm_and_key opts[:name]
+      private_key = new_key opts[:name]
+      write_key(private_key, File.expand_path('~/.ssh/hpcloud-keys/' + opts[:region] + '/'))
+
+      server = @os.create_server(
+          :imageRef => image_id(opts[:image]),
+          :flavorRef => flavor_id(opts[:flavor]),
+          :key_name => private_key[:name],
+          :security_groups => opts[:sec_groups],
+          :name => opts[:name],
+          :personality => opts[:personality])
+
+      wait(300) do
+        server = @os.server(server.id)
+        raise 'error booting vm' if server.status == 'ERROR'
+        server.status == 'ACTIVE'
+      end
+
+      @logger.info "Try floating IP attach..."
+      @logger.info opts[:checkbox_attach_floating_ip]
+
+      if opts[:checkbox_attach_floating_ip] == 'true'
+        if opts[:attach_ip] != ''
+          @logger.info "Try floating IP attach..."
+          floating_ip_attach(opts[:name], opts[:attach_ip])
+        else
+          @logger.info "Try floating IP create attach..."
+          floating_ip_create_and_attach(opts[:name])
+        end
+      end
+
+      # scrape on final updated object
+      server = @os.server(server.id)
+
+      print_addresses(server)
+
+      {
+          :ip_floating => ip_public(server),
+          :ip_public => ip_public(server),
+          :ip_local_nat => ip_local_nat(server),
+          :id => server.id,
+          :user => opts[:ssh_shell_user],
+          :key => private_key[:private_key]
+      }
+
+    rescue Net::SSH::Simple::Error => e
+      @logger.info "Error occurred during bootvmn"
+      @logger.info e          # Human readable error
+      @logger.info e.wrapped  # Original Exception
+      @logger.info e.result   # Net::SSH::Simple::Result
+      raise e
     end
 
-    # scrape on final updated object
-    server = @os.server(server.id)
-
-    print_addresses(server)
-
-    {
-        :ip_floating => ip_public(server),
-        :ip_public => ip_public(server),
-        :ip_local_nat => ip_local_nat(server),
-        :id => server.id,
-        :user => opts[:ssh_shell_user],
-        :key => private_key[:private_key]
-    }
   end
 
 
