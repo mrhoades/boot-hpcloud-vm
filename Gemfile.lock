@@ -3,32 +3,30 @@ GEM
   specs:
     blockenspiel (0.4.5)
     bouncy-castle-java (1.5.0147)
-    hashie (2.0.3)
+    hashie (2.1.0)
     jenkins-plugin-runtime (0.2.3)
       json
       slop (~> 3.0.2)
-    jruby-openssl (0.8.7)
+    jruby-openssl (0.9.4)
       bouncy-castle-java (>= 1.5.0147)
-    json (1.7.7)
-    json (1.7.7-java)
-    net-scp (1.1.0)
+    json (1.8.1-java)
+    net-scp (1.1.2)
       net-ssh (>= 2.6.5)
-    net-ssh (2.6.6)
-    net-ssh-simple (1.6.2)
+    net-ssh (2.8.0)
+    net-ssh-simple (1.6.5)
       blockenspiel (~> 0.4.3)
       hashie (>= 1.1.0)
       net-scp (~> 1.1.0)
-      net-ssh (~> 2.6.3)
-    openstack (1.1.1)
+      net-ssh (~> 2.8.0)
+    openstack (1.1.2)
       json
     slop (3.0.4)
 
 PLATFORMS
   java
-  ruby
 
 DEPENDENCIES
   jenkins-plugin-runtime (~> 0.2.3)
   jruby-openssl (>= 0.8.7)
-  net-ssh-simple (~> 1.6.2)
+  net-ssh-simple (~> 1.6.5)
   openstack (~> 1.1.1)
