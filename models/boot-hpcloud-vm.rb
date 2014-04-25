@@ -2,7 +2,6 @@ require_relative 'novafizz'
 require_relative 'boot_vm_concurrent'
 require_relative 'boot_vm_vars'
 require_relative 'ssh'
-require_relative 'ssh-session'
 require 'net/ssh/simple'
 
 
