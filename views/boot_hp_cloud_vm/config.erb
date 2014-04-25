@@ -110,8 +110,8 @@
            end
            f.entry :title => 'Authorized Key',
                    :field => 'ssh_authorized_public_key',
-                   :description => 'Install a public key to authorized_keys for defined user' do
-             f.textbox :default => ''
+                   :description => 'Install public keys to authorized_keys for defined user(s)' do
+             f.textarea :default => ''
            end
            f.entry :title => 'Setup Timeout Seconds',
                    :field => 'ssh_shell_timeout',
