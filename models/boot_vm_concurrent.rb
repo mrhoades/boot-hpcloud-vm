@@ -122,6 +122,8 @@ class BootVMConcurrent
 
   def connect_to_hpcloud
     if @novafizz == nil or @novafizz.is_openstack_connection_alive == false
+      counter = 0
+
       begin
         write_log 'Create New HP Cloud Compute Connection...'
         @novafizz = NovaFizz.new(:logger => @logger,
@@ -237,10 +239,22 @@ class BootVMConcurrent
     begin
 
       @logger.info ''
-      @logger.info 'Install public key to authorized_keys...'
+      @logger.info 'Install public key(s) to authorized_keys...'
       @logger.info ''
 
-      @novafizz.run_commands(@vars.creds,"echo #{@vars.ssh_authorized_public_key} >> ~/.ssh/authorized_keys".split(','))
+      commands = @vars.ssh_authorized_public_key.split(/[\n]/)
+      command_array = Array.new()
+
+      # wipe the file first
+      command_array.push("echo '' > ~/.ssh/authorized_keys")
+
+      commands.each_with_index do |cmd,index|
+        formatted_cmd = " echo 'Install Key to authorized_keys: #{cmd}' && "
+        formatted_cmd << " echo #{cmd} >> ~/.ssh/authorized_keys"
+        command_array.push(formatted_cmd)
+      end
+
+      @novafizz.run_commands(@vars.creds, command_array)
 
     rescue Exception => e
       @logger.info 'install pubkey to authorized_keys failed... try again....'
