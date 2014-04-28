@@ -246,7 +246,8 @@ class BootVMConcurrent
       command_array = Array.new()
 
       # wipe the file first
-      command_array.push("echo '' > ~/.ssh/authorized_keys")
+      # (mattyjay) bugbugbug - is this borking access to the machine?
+      # command_array.push("echo '' > ~/.ssh/authorized_keys")
 
       commands.each_with_index do |cmd,index|
         formatted_cmd = " echo 'Install Key to authorized_keys: #{cmd}' && "
@@ -276,18 +277,27 @@ class BootVMConcurrent
       }
       ssh_thread.join
     rescue Exception => e
-      @logger.info "Timeout occured blah blah. Does anyone care... not really."
+
+      @logger.info "Exception in execute_ssh_commands_thread: "
+
+      @logger.info e
+
       # bugbugbug - this should be optional, user might want to end script
       #raise "timeout occurred fail hard"
     end
   end
 
   def execute_ssh_commands_on_vm(ssh_shell_commands)
+
     write_log '****** COMMAND SUMMARY ******'
-    write_log "ssh #{@vars.ssh_shell_user}@#{@vars.creds[:ip]} and run commands line-by-line:"
+    write_log "ssh #{@vars.ssh_shell_user}@#{@vars.creds[:ip_floating]} and run commands line-by-line:"
+
     print_with_command_numbers(ssh_shell_commands)
+
     write_log '****** BEGIN RUN COMMANDS ******'
+
     cmds = build_commmands_array(ssh_shell_commands)
+
     result = @novafizz.run_commands(@vars.creds, cmds)
 
     write_debug('SSH_COMMANDS_RESULT:')
@@ -315,10 +325,10 @@ class BootVMConcurrent
     command_array = Array.new()
 
     # bugbugbug - this chit might be a bad... może tak być może nr
-    command_array.push("export DEBIAN_FRONTEND=noninteractive")
-    command_array.push("sudo echo 'ClientAliveInterval 250'  >> sudo /etc/ssh/sshd_config")
-    command_array.push("sudo echo 'ClientAliveCountMax 5'  >> sudo /etc/ssh/sshd_config")
-    command_array.push("sudo service ssh restart")
+    # command_array.push("export DEBIAN_FRONTEND=noninteractive")
+    # command_array.push("sudo echo 'ClientAliveInterval 250'  >> sudo /etc/ssh/sshd_config")
+    # command_array.push("sudo echo 'ClientAliveCountMax 5'  >> sudo /etc/ssh/sshd_config")
+    # command_array.push("sudo service ssh restart")
 
     commands.each_with_index do |cmd,index|
 
