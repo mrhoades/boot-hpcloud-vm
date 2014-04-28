@@ -49,13 +49,20 @@ class NovaFizz
   end
 
   def is_openstack_connection_alive
-    # check for a result to see if connection is alive
-    flavors = @os.flavors
-    if flavors.length > 0
-      return true
+
+    @logger.info "Check if openstack connection alive..."
+    begin
+      flavors = @os.flavors
+      if flavors.length > 0
+        @logger.info "Got some flava flav... looking alive..."
+        return true
+      end
+    rescue Exception => e
+      @logger.info "Error when checking for active connection"
+      @logger.info e.message
+      return false
     end
-  rescue
-    false
+
   end
 
 
@@ -207,7 +214,9 @@ class NovaFizz
   end
 
   def server_exists(name)
+
     @logger.info "Checking to see if VM with #{name} exists..."
+
     begin
       s = server_by_name name
       if s
