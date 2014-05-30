@@ -38,14 +38,15 @@ class BootVMConcurrent
 
 
   def initialize(build, listener, vars_in)
-
     @logger = listener
     @build = build
     @env = build.native.getEnvironment
     @vars = vars_in
-
     inject_env_vars
+  end
 
+
+  def geter_done
     boot_vm
     scp_custom_script_to_vm unless @vars.checkbox_user_data == 'false'
     install_authorized_public_key unless @vars.ssh_authorized_public_key == ''
@@ -57,12 +58,12 @@ class BootVMConcurrent
     log_error(e)
   rescue Exception => e
     log_error(e)
-  ensure
-    begin
-      if @vars.checkbox_delete_vm_at_end == 'true'
-        @logger.info "\n****** CLEANUP ******\n"
-        delete_vm_and_key()
-      end
+  end
+
+  def cleanup
+    if @vars.checkbox_delete_vm_at_end == 'true'
+      @logger.info "\n****** CLEANUP ******\n"
+      delete_vm_and_key()
     end
   end
 
@@ -357,7 +358,7 @@ class BootVMConcurrent
   def delete_vm_and_key
     counter = 0
     begin
-      if(@novafizz.server_exists(@vars.vm_name) == true)
+      if(@novafizz.server_exists(@vars.vm_name) == true or @novafizz.keypair_exists(@vars.vm_name) == true)
         connect_to_hpcloud()
         write_log "Delete cloud VM and key with name '#{@vars.vm_name}'..."
         @novafizz.delete_vm_and_key(@vars.vm_name)

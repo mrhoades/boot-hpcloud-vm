@@ -56,25 +56,30 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
 
   def perform(build, launcher, listener)
 
-    begin
-      vars = BootVMVars.new()
-      fill_vars_object(vars)
+    vars = BootVMVars.new()
+    fill_vars_object(vars)
+    bootvm = BootVMConcurrent.new(build, listener, vars)
 
-      ssh_thread = Thread.new{
-        # bugbugbugbug - there should be a global timeout
-        Timeout::timeout(2400) {
-          BootVMConcurrent.new(build, listener, vars)
-        }
-      }
-      ssh_thread.join
+    # global timeout - sum of all major time consumers
+    timeout = vars.ssh_shell_timeout.to_i + vars.ssh_shell_timeout1.to_i
+    timeout += vars.ssh_shell_timeout2.to_i + 600
+    # time for booting the vm (bugbugbug - hardcoded value)
+    listener.info 'JOB_TIMEOUT: ' + timeout.to_s
 
-    rescue Exception => e
-      @logger.info "Error Caught in Main Perform: "
-      @logger.info e.message
-    end
+    bootvm_thread = Thread.new{
+      Timeout::timeout(timeout) {bootvm.geter_done}
+    }
+    bootvm_thread.join
 
-
-
+  rescue Exception => e
+    listener.info "Error Caught in Main Perform: "
+    listener.info e.message
+    listener.info e.backtrace
+  ensure
+    cleanup_thread = Thread.new{
+      Timeout::timeout(120) {bootvm.cleanup}
+    }
+    cleanup_thread.join
   end
 
   def fill_vars_object(vars)
