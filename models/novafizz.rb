@@ -357,7 +357,9 @@ class NovaFizz
       @logger.debug 'RESULT EXIT CODE: ' + result.exit_code.to_s #=> 0
       @logger.debug 'RESULT STDOUT: ' + result.stdout.to_s    #=> ''
       @logger.debug 'RESULT STDERR: ' + result.stderr.to_s    #=> ''
-      raise "Script failed!!! "
+
+      # bugbugbug - need option to ignore this raise as often failure doesn't mean failure
+      # raise "Script failed!!! "
     else
       result.exit_code
     end
