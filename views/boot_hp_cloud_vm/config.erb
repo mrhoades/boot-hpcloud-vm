@@ -69,8 +69,13 @@
                          :inline => true do
            f.entry :title => 'Use existing floating IP',
                    :field => 'vm_floating_ip',
-                   :description => 'If left empty, IP will be created. You must have quota available.' do
+                   :description => 'If left empty, unused IP will be selected from defined pool. You must provision IPs manually.' do
              f.textbox :default => ''
+           end
+           f.entry :title => 'Pool',
+                   :field => 'vm_floating_ip_pool',
+                   :description => 'Pool to use when selecting unused ip. Default pool is Ext-Net.' do
+             f.textbox :default => 'Ext-Net'
            end
          end
 

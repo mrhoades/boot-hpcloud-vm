@@ -12,6 +12,7 @@ class BootVMVars
                 :vm_flavor_name,
                 :vm_security_groups,
                 :vm_floating_ip,
+                :vm_floating_ip_pool,
                 :vm_user_data_script,
                 :ssh_shell_commands,
                 :ssh_shell_commands1,

@@ -1,12 +1,11 @@
 require 'openstack'
 require 'net/ssh/simple'
 require 'fileutils'
-
+require 'rubygems'
 
 class NovaFizz
 
   attr_accessor :os,
-                :fog,
                 :logger
 
   def initialize(opts)
@@ -22,20 +21,34 @@ class NovaFizz
     @logger.info "ZONE: #{opts[:availability_zone]}"
     @logger.info "SERVICE_TYPE:#{opts[:service_type]}"
 
+    # begin
+    #
+    #   @logger.info 'Try connect to hp cloud using ruby fog...'
+    #
+    #   @fog = Fog::Compute.new(:provider => 'HP',
+    #                                           :hp_access_key => '',
+    #                                           :hp_secret_key => '',
+    #                                           :hp_auth_uri => 'https://region-b.geo-1.identity.hpcloudsvc.com:35357/v2.0/',
+    #                                           :hp_tenant_id => '',
+    #                                           :hp_avl_zone => 'az1')
+    #
+    #   @logger.info 'Try connect to hp cloud using ruby fog...'
+    #
+    #   flavors = @fog.list_flavors.body['flavors']
+    #
+    #   @logger.info 'list flavors'
+    #     @logger.info flavors.to_s
+    #   @logger.info 'done list flavors'
+    #
+    # rescue Exception => e
+    #
+    #   @logger.info 'OpenStack fog connection failed...'
+    #   @logger.info e.message
+    #
+    # end
+
+
     begin
-
-      @logger.info 'Try connect using 1.0 style region like az-1.region-a.geo-1...'
-
-      @os = OpenStack::Connection.create(:username => opts[:username],
-                                         :api_key => opts[:password],
-                                         :authtenant => opts[:authtenant],
-                                         :auth_url => opts[:auth_url],
-                                         :region => opts[:availability_zone] + '.' + opts[:region],
-                                         :service_type => opts[:service_type])
-
-    rescue Exception => e
-
-      @logger.info e.message
 
       @logger.info 'Try connect using 1.1 style region like region-a.geo-1...'
 
@@ -44,6 +57,17 @@ class NovaFizz
                                          :authtenant => opts[:authtenant],
                                          :auth_url => opts[:auth_url],
                                          :region => opts[:region],
+                                         :service_type => opts[:service_type])
+
+    rescue Exception => e
+      @logger.info e.message
+      @logger.info 'Try connect using 1.0 style region like az-1.region-a.geo-1...'
+
+      @os = OpenStack::Connection.create(:username => opts[:username],
+                                         :api_key => opts[:password],
+                                         :authtenant => opts[:authtenant],
+                                         :auth_url => opts[:auth_url],
+                                         :region => opts[:availability_zone] + '.' + opts[:region],
                                          :service_type => opts[:service_type])
     end
   end
@@ -461,16 +485,14 @@ class NovaFizz
         server.status == 'ACTIVE'
       end
 
-      @logger.info "Try floating IP attach..."
-      @logger.info opts[:checkbox_attach_floating_ip]
-
+      @logger.info "\nTry floating IP attach..."
       if opts[:checkbox_attach_floating_ip] == 'true'
         if opts[:attach_ip] != ''
-          @logger.info "Try floating IP attach..."
+          @logger.info "\nTry attach existing ip #{opts[:attach_ip].to_s}"
           floating_ip_attach(opts[:name], opts[:attach_ip])
         else
-          @logger.info "Try floating IP create attach..."
-          floating_ip_create_and_attach(opts[:name])
+          @logger.info "\nTry attaching an unused IP..."
+          floating_ip_attach_unused(opts[:name], opts[:vm_floating_ip_pool])
         end
       end
 
@@ -507,6 +529,15 @@ class NovaFizz
     @os.get_floating_ips.select { |f| f.ip == float_ip_address }
   end
 
+  def floating_ip_get_object_by_id(float_id)
+    @os.get_floating_ips.each do |f|
+      if f.id == float_id
+        return f
+      end
+    end
+    raise "Failed in floating_ip_get_object_by_id - floating ID #{float_id} not found"
+  end
+
   def floating_ip_get_id(float_ip_address)
     @os.get_floating_ips.each do |f|
       if f.ip == float_ip_address
@@ -520,14 +551,48 @@ class NovaFizz
 
   end
 
-  def floating_ip_create_and_attach(server_name, pool={})
-    @logger.info "Create new floating ip..."
-    floating_ip_object = @os.create_floating_ip(pool)
-    server_id = server_id_from_name(server_name)
-    @logger.info "Attach floating ip #{floating_ip_object.ip} to instance id #{server_id}..."
-    @os.attach_floating_ip({:server_id => server_id, :ip_id =>floating_ip_object.id})
+  def get_unused_ip_id_list(pool)
+    unattached_ip_list = []
+    @logger.info "Get list of unused IPs at this moment in pool #{pool}..."
+    @os.get_floating_ips.each do |ip_object|
+      if ip_object.instance_id == nil && ip_object.pool == pool
+        unattached_ip_list.push(ip_object.id)
+      end
+    end
+    unattached_ip_list
+  end
 
-    floating_ip_object.ip
+  def floating_ip_attach_unused(server_name, floating_ip_pool)
+    # bugbubug - this is a hack/workaround for the currently broken ruby openstack which can't provision ips on hpcloud
+    @logger.info "Find and attach and unused floating ip to server #{server_name}"
+    retry_counter = 0
+    begin
+      ip_list_now = self.get_unused_ip_id_list(floating_ip_pool)
+      if ip_list_now.length == 0
+        raise "You don't have any available floating IPs provisioned in pool #{floating_ip_pool}. You must provision IPs in the account for prior to running this script as it only finds unused ips and attach's them."
+      end
+
+      server_id = server_id_from_name(server_name)
+      sleep 5 # wait for ips to be consumed and released possibly
+      ip_list_later = self.get_unused_ip_id_list(floating_ip_pool)
+
+      unused_ip_id_list = ip_list_now & ip_list_later
+
+      @logger.info "Found #{unused_ip_id_list.length} unused IPs."
+      unused_ip_id = unused_ip_id_list.shuffle.sample()
+      unused_ip = floating_ip_get_object_by_id(unused_ip_id)
+
+      @logger.info "Attach floating ip #{unused_ip.ip} to instance id #{server_id}..."
+      @os.attach_floating_ip({:server_id => server_id, :ip_id =>unused_ip.id})
+    rescue Exception => e
+      retry_counter += 1
+      @logger.info "ERROR in floating_ip_attach_unused. Retry attempt #{retry_counter} of 5 ..."
+      @logger.info e.message
+      retry unless  retry_counter >= 5
+      @logger.info e.backtrace
+      raise 'Attach IP failed after 5 attempts.'
+    end
+    unused_ip.ip
   end
 
   def floating_ip_attach(server_name, float_ip_address)
@@ -537,9 +602,4 @@ class NovaFizz
     @logger.info "Attach IP id #{ip_id} to server id #{server_id}..."
     @os.attach_floating_ip({:server_id => server_id, :ip_id =>ip_id})
   end
-
-
-
-
-
 end

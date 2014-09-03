@@ -11,6 +11,7 @@ class BootVMConcurrent
                 :vm_flavor_name,
                 :vm_security_groups,
                 :vm_floating_ip,
+                :vm_floating_ip_pool,
                 :vm_user_data_script,
                 :ssh_shell_commands,
                 :ssh_shell_commands1,
@@ -90,10 +91,9 @@ class BootVMConcurrent
     # bugbugbug - need to verify attach succeeded
     # bugbugbug - need to verify ssh connectivity using floatip
 
-    if @vars.vm_floating_ip == '' and @vars.checkbox_attach_floating_ip ==
+    if @vars.vm_floating_ip == '' and @vars.checkbox_attach_floating_ip == true
+
       @vars.vm_floating_ip = @novafizz.floating_ip_create_and_attach(@vars.creds[:id])
-
-
       @novafizz.ip_floating(server)
 
     else
@@ -179,7 +179,8 @@ class BootVMConcurrent
                                      :sec_groups => [@vars.vm_security_groups],
                                      :ssh_shell_user => @vars.ssh_shell_user,
                                      :attach_ip => @vars.vm_floating_ip,
-                                     :checkbox_attach_floating_ip=> @vars.checkbox_attach_floating_ip
+                                     :checkbox_attach_floating_ip=> @vars.checkbox_attach_floating_ip,
+                                     :vm_floating_ip_pool => @vars.vm_floating_ip_pool
 
         write_log 'VM booted with NAT IP Address: ' + @vars.creds[:ip_local_nat]
         write_log 'VM booted with Public IP Address: ' + @vars.creds[:ip_public]
@@ -198,7 +199,10 @@ class BootVMConcurrent
     rescue Exception => e
       @logger.info "Error with boot VM attempt: "
       @logger.info e.message
-      @logger.info e.backtrace
+
+      #bugbugbug - this will dump a ton of crap into the error out
+      # need to make this optional only show if verbose logging enabled
+      # @logger.info e.backtrace
       raise e
     end
   end
@@ -326,10 +330,10 @@ class BootVMConcurrent
     command_array = Array.new()
 
     # bugbugbug - this chit might be a bad... może tak być może nr
-    # command_array.push("export DEBIAN_FRONTEND=noninteractive")
-    # command_array.push("sudo echo 'ClientAliveInterval 250'  >> sudo /etc/ssh/sshd_config")
-    # command_array.push("sudo echo 'ClientAliveCountMax 5'  >> sudo /etc/ssh/sshd_config")
-    # command_array.push("sudo service ssh restart")
+    command_array.push("export DEBIAN_FRONTEND=noninteractive")
+    command_array.push("sudo echo 'ClientAliveInterval 250'  >> sudo /etc/ssh/sshd_config")
+    command_array.push("sudo echo 'ClientAliveCountMax 5'  >> sudo /etc/ssh/sshd_config")
+    command_array.push("sudo service ssh restart")
 
     commands.each_with_index do |cmd,index|
 
