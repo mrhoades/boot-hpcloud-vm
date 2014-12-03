@@ -64,6 +64,11 @@
                  :description => 'Openstack security group (my custom group)' do
            f.textbox :clazz => 'required', :default => 'default'
          end
+         f.entry :title => 'Network Name',
+                 :field => 'vm_network_name',
+                 :description => 'Name of the network you want to use (rocketboy-network or yourusername-network)'  do
+           f.textbox :default => ''
+         end
          f.optionalBlock :title => 'Attach Floating IP',
                          :field => 'checkbox_attach_floating_ip',
                          :inline => true do

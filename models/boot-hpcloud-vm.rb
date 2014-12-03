@@ -26,6 +26,7 @@ class BootHPCloudVM < Jenkins::Tasks::Builder
               :vm_security_groups,
               :vm_floating_ip,
               :vm_floating_ip_pool,
+              :vm_network_name,
               :vm_user_data_script,
               :ssh_shell_commands,
               :ssh_shell_commands1,

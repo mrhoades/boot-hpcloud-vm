@@ -12,6 +12,7 @@ class BootVMConcurrent
                 :vm_security_groups,
                 :vm_floating_ip,
                 :vm_floating_ip_pool,
+                :vm_network_name,
                 :vm_user_data_script,
                 :ssh_shell_commands,
                 :ssh_shell_commands1,
@@ -180,7 +181,8 @@ class BootVMConcurrent
                                      :ssh_shell_user => @vars.ssh_shell_user,
                                      :attach_ip => @vars.vm_floating_ip,
                                      :checkbox_attach_floating_ip=> @vars.checkbox_attach_floating_ip,
-                                     :vm_floating_ip_pool => @vars.vm_floating_ip_pool
+                                     :vm_floating_ip_pool => @vars.vm_floating_ip_pool,
+                                     :vm_network_name => @vars.vm_network_name
 
         write_log 'VM booted with NAT IP Address: ' + @vars.creds[:ip_local_nat]
         write_log 'VM booted with Public IP Address: ' + @vars.creds[:ip_public]

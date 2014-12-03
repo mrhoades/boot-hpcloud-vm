@@ -6,6 +6,7 @@ require 'rubygems'
 class NovaFizz
 
   attr_accessor :os,
+                :osn,
                 :logger
 
   def initialize(opts)
@@ -58,6 +59,14 @@ class NovaFizz
                                          :auth_url => opts[:auth_url],
                                          :region => opts[:region],
                                          :service_type => opts[:service_type])
+
+      @osn = OpenStack::Connection.create(:username => opts[:username],
+                                         :api_key => opts[:password],
+                                         :authtenant => opts[:authtenant],
+                                         :auth_url => opts[:auth_url],
+                                         :region => opts[:region],
+                                         :service_type => "network")
+
 
     rescue Exception => e
       @logger.info e.message
@@ -446,6 +455,36 @@ class NovaFizz
     end
   end
 
+  def network_uuid_from_name(name)
+    # bugbugbug - watch out, neutron net-list shows an id that does not correlate to UUID
+    # must query to find the REAL lesean mccoy
+    @logger.debug 'network_uuid_from_name'
+    networks = @osn.list_networks
+    @logger.debug networks
+    networks.each do |network|
+      @logger.debug
+      return network.id if network.name == name
+    end
+    raise "Neutron network with name #{name} was not found."
+  end
+
+  def prepare_create_server_hash(opts)
+
+    # create hash object to store all values in
+    vars = Hash.new
+    vars[:imageRef] = image_id(opts[:image])
+    vars[:flavorRef] = flavor_id(opts[:flavor])
+    vars[:security_groups] = opts[:sec_groups]
+    vars[:name] = opts[:name]
+    vars[:personality ]= opts[:personality]
+
+    if opts[:vm_network_name] != ''
+      net_uuid = network_uuid_from_name(opts[:vm_network_name])
+      vars[:networks] = [{uuid: net_uuid}]
+    end
+
+    vars
+  end
 
   # boot an instance and return creds
   def boot(opts)
@@ -455,29 +494,31 @@ class NovaFizz
         @logger.info "#{key} : #{value}"
       end
 
+      # set defaults if values not set
       opts[:flavor] ||= 'standard.xsmall'
       opts[:image]  ||= /Ubuntu Precise/
       opts[:sec_groups] ||= ['default']
       opts[:key_name] ||= 'default'
-      opts[:region] ||= 'region-a.geo-1'
-      opts[:availability_zone] ||= 'az-1'
+      opts[:region] ||= 'region-b.geo-1'
+      opts[:availability_zone] ||= 'az3'
       opts[:personality] ||= {}
       opts[:ssh_shell_user] ||= 'ubuntu'
       opts[:attach_ip] ||= ''
+      opts[:net_id] ||= '8a768665-f45e-4120-b568-554cde50676e'
+      opts[:name] ||= opts[:vm_name]
 
       raise 'no name provided' if !opts[:name] or opts[:name].empty?
 
+      server_opts = prepare_create_server_hash(opts)
+
+      # cleanup and generate keys
       delete_vm_and_key opts[:name]
       private_key = new_key opts[:name]
       write_key(private_key, File.expand_path('~/.ssh/hpcloud-keys/' + opts[:region] + '/'))
+      server_opts[:key_name] = private_key[:name]
 
-      server = @os.create_server(
-          :imageRef => image_id(opts[:image]),
-          :flavorRef => flavor_id(opts[:flavor]),
-          :key_name => private_key[:name],
-          :security_groups => opts[:sec_groups],
-          :name => opts[:name],
-          :personality => opts[:personality])
+      # boot cloud vm
+      server = @os.create_server(server_opts)
 
       wait(300) do
         server = @os.server(server.id)
